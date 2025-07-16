@@ -24,7 +24,7 @@ class _ProfilePageState extends State<ProfilePage> {
               SearchHeader(
                 showSearch: false,
                 iconColor: Colors.black,
-                logoPath: '../images/logo-dark-green.png',
+                logoPath: 'images/logo-dark-green.png',
               ),
 
               // ✅ Curved white container holding the profile info
@@ -43,9 +43,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     // 🟢 Profile Image
                     const CircleAvatar(
                       radius: 45,
-                      backgroundImage: AssetImage(
-                        '../images/profile-sample.jpg',
-                      ),
+                      backgroundImage: AssetImage('images/profile-sample.jpg'),
                     ),
                     const SizedBox(height: 10),
 
@@ -147,9 +145,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   children: [
                     const CircleAvatar(
                       radius: 20,
-                      backgroundImage: AssetImage(
-                        '../images/profile-sample.jpg',
-                      ),
+                      backgroundImage: AssetImage('images/profile-sample.jpg'),
                     ),
                     const SizedBox(width: 10),
                     const Expanded(
@@ -179,7 +175,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         CircleAvatar(
                           radius: 18,
                           backgroundImage: AssetImage(
-                            '../images/profile-sample.jpg',
+                            'images/profile-sample.jpg',
                           ),
                         ),
                         SizedBox(width: 10),
@@ -215,7 +211,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.asset(
-                        '../images/home-photo1.jpg',
+                        'images/home-photo1.jpg',
                         fit: BoxFit.cover,
                         width: double.infinity,
                         height: 180,

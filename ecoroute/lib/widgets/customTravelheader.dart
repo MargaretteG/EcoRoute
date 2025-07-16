@@ -8,13 +8,13 @@ class TravelHeader extends StatefulWidget {
   final bool isIconActive;
 
   const TravelHeader({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     this.showBottomRow = true,
     this.onIconTap,
     this.isIconActive = false,
-  }) : super(key: key);
+  });
 
   @override
   State<TravelHeader> createState() => _TravelHeaderState();

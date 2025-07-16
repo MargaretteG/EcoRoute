@@ -48,7 +48,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     horizontal: 30,
                     vertical: 0,
                   ),
-                  child: Container(
+                  child: SizedBox(
                     width: double.infinity,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,7 +130,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
                                 child: Image.asset(
-                                  '../images/home-photo1.jpg',
+                                  'images/home-photo1.jpg',
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -171,7 +171,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     Column(
                       children: [
                         TouristSpotCard(
-                          imagePath: '../images/taal-basilica-sample.jpg',
+                          imagePath: 'images/taal-basilica-sample.jpg',
                           name: 'Taal Basilica -Church',
                           location: 'Brgy. Taal, Batangas',
                           starRating: 5,
@@ -180,7 +180,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           badgeIcon: Icons.location_on,
                         ),
                         TouristSpotCard(
-                          imagePath: '../images/taal-basilica-sample.jpg',
+                          imagePath: 'images/tourist-spot-sample.jpg',
                           name: 'Taal Basilica -Church',
                           location: 'Brgy. Taal, Batangas',
                           starRating: 5,

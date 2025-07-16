@@ -15,7 +15,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    Timer(const Duration(seconds: 5), () {
+    Timer(const Duration(seconds: 6), () {
       Navigator.of(context).pushReplacement(_createBlurRoute());
     });
   }
@@ -54,7 +54,7 @@ class _SplashScreenState extends State<SplashScreen> {
       backgroundColor: const Color(0xFF142900), // Dark green background
       body: Center(
         child: Image.asset(
-          '../../images/animated-logo-3.gif',
+          'images/animated-logo-3.gif',
           height: 270, // adjust size as needed
         ),
       ),

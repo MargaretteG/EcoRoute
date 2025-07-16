@@ -11,7 +11,7 @@ class TravelContainer extends StatelessWidget {
   final VoidCallback? onDelete;
 
   const TravelContainer({
-    Key? key,
+    super.key,
     required this.icon,
     required this.title,
     required this.date,
@@ -19,7 +19,7 @@ class TravelContainer extends StatelessWidget {
     this.onTap,
     this.onEdit,
     this.onDelete,
-  }) : super(key: key);
+  });
 
   // Generate a lighter shade for the background
   Color _getLighterColor(Color color) {

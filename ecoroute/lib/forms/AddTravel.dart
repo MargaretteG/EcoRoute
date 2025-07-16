@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 
 class AddTravel extends StatefulWidget {
   const AddTravel({super.key});
@@ -50,7 +48,7 @@ class _AddTravelState extends State<AddTravel> {
                           },
                         ),
                         Spacer(),
-                        Image.asset('../images/logo-green.png', height: 45),
+                        Image.asset('images/logo-green.png', height: 45),
                         const SizedBox(width: 10),
 
                         Spacer(),

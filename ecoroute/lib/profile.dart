@@ -37,7 +37,7 @@ class _ProfileState extends State<Profile> {
                         SearchHeader(
                           showSearch: false,
                           iconColor: Colors.black,
-                          logoPath: '../images/logo-dark-green.png',
+                          logoPath: 'images/logo-dark-green.png',
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(
@@ -63,7 +63,7 @@ class _ProfileState extends State<Profile> {
                               const CircleAvatar(
                                 radius: 45,
                                 backgroundImage: AssetImage(
-                                  '../images/profile-sample.jpg',
+                                  'images/profile-sample.jpg',
                                 ),
                               ),
                               const SizedBox(height: 10),

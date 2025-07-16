@@ -119,7 +119,7 @@ class _LoginPageState extends State<LoginPage> {
                         Transform.translate(
                           offset: const Offset(0, -23),
                           child: Image.asset(
-                            '../assets/images/logo-green.png',
+                            'images/logo-green.png',
                             height: 80,
                           ),
                         ),

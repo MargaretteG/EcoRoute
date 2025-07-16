@@ -8,7 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 class ApiService {
-  static const String apiUrl = "https://127.0.0.1/";
+  // 🔧 Change this to 10.0.2.2 if using emulator
+  static const String baseUrl = "http://192.168.100.11/Ecoroute/";
   static const Duration requestTimeout = Duration(seconds: 10);
   static const Duration requestTimeoutUploadImage = Duration(seconds: 20);
 
@@ -20,6 +21,7 @@ class ApiService {
   ApiService() {
     httpClient = _createHttpClient();
   }
+
   http.Client _createHttpClient() {
     final HttpClient client = HttpClient()
       ..badCertificateCallback =
@@ -34,39 +36,50 @@ class ApiService {
     required String email,
     required String phoneNum,
     required String nationality,
-    required String dateBirth, // in YYYY-MM-DD format
-    required int gender, // you can send "Male"/"Female" or any string
-    required String validID, // e.g., "Passport"
-    required String imageID, // file name or path if you're storing image path
+    required String dateBirth,
+    required int gender,
     required String username,
     required String password,
+    String? validID,
+    File? imageID,
   }) async {
-    final uri = Uri.parse("${apiUrl}Ecoroute/sign_up.php");
-    try {
-      final response = await httpClient
-          .post(
-            uri,
-            body: {
-              'firstName': firstName,
-              'lastName': lastName,
-              'address': address,
-              'email': email,
-              'phoneNum': phoneNum,
-              'nationality': nationality,
-              'dateBirth': dateBirth,
-              'gender': gender,
-              'ValidID': validID,
-              'imageID': imageID,
-              'username': username,
-              'password': password,
-            },
-          )
-          .timeout(requestTimeout);
+    final uri = Uri.parse("${baseUrl}sign_up.php");
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+    try {
+      var request = http.MultipartRequest('POST', uri)
+        ..fields['firstName'] = firstName
+        ..fields['lastName'] = lastName
+        ..fields['address'] = address
+        ..fields['email'] = email
+        ..fields['phoneNum'] = phoneNum
+        ..fields['nationality'] = nationality
+        ..fields['dateBirth'] = dateBirth
+        ..fields['gender'] = gender.toString()
+        ..fields['ValidID'] = validID ?? ''
+        ..fields['username'] = username
+        ..fields['password'] = password;
+
+      if (imageID != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'imageID', // matches PHP $_FILES['imageID']
+            imageID.path,
+          ),
+        );
       }
-      throw Exception("HTTP ${response.statusCode}");
+
+      // Send the request
+      final streamedResponse = await request.send().timeout(
+        requestTimeoutUploadImage,
+      );
+
+      // Read and decode the response
+      final responseString = await streamedResponse.stream.bytesToString();
+      if (streamedResponse.statusCode == 200) {
+        return jsonDecode(responseString);
+      } else {
+        throw Exception("HTTP ${streamedResponse.statusCode}: $responseString");
+      }
     } catch (e) {
       throw Exception("Network error: ${e.toString()}");
     }

@@ -7,12 +7,12 @@ class SearchHeader extends StatelessWidget {
   final bool showSearch;
 
   const SearchHeader({
-    Key? key,
-    this.logoPath = '../assets/images/logo-green.png',
+    super.key,
+    this.logoPath = 'images/logo-green.png',
     this.iconColor = Colors.white,
     this.searchBgColor = const Color(0xFF143D15),
     this.showSearch = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

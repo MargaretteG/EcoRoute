@@ -1,11 +1,14 @@
+import 'package:ecoroute/homePage.dart';
+import 'package:ecoroute/main_screen.dart';
 import 'package:ecoroute/signupPage2.dart';
 import 'package:flutter/material.dart';
-// import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:ecoroute/widgets/custom_button.dart';
 import 'package:flutter/services.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:ecoroute/api_service.dart';
+import 'dart:io';
 
 class SignUpPage1 extends StatefulWidget {
   const SignUpPage1({super.key});
@@ -17,6 +20,15 @@ class SignUpPage1 extends StatefulWidget {
 class _SignUpPage1State extends State<SignUpPage1> {
   bool _obscurePassword = true;
   final TextEditingController _dobController = TextEditingController();
+
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+
   String gender = 'Male';
   String id = 'National ID';
   String nationality = 'Filipino';
@@ -32,6 +44,44 @@ class _SignUpPage1State extends State<SignUpPage1> {
       setState(() {
         _selectedImage = image;
       });
+    }
+  }
+
+  int _genderToInt(String g) {
+    if (g == 'Male') return 0;
+    if (g == 'Female') return 1;
+    return 2;
+  }
+
+  Future<void> _submitSignUp() async {
+    try {
+      final api = ApiService();
+      final result = await api.signUp(
+        firstName: _firstNameController.text,
+        lastName: _lastNameController.text,
+        address: _addressController.text,
+        email: _emailController.text,
+        phoneNum: _phoneController.text,
+        nationality: nationality,
+        dateBirth: _dobController.text,
+        gender: _genderToInt(gender),
+        username: _usernameController.text,
+        password: _passwordController.text,
+        validID: id,
+        imageID: _selectedImage != null ? File(_selectedImage!.path) : null,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Signup complete')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 
@@ -77,7 +127,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                         Transform.translate(
                           offset: const Offset(0, -23),
                           child: Image.asset(
-                            '../assets/images/logo-green.png',
+                            'images/logo-green.png',
                             height: 80,
                           ),
                         ),
@@ -132,6 +182,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                     children: [
                                       Expanded(
                                         child: TextFormField(
+                                          controller: _usernameController,
                                           decoration: const InputDecoration(
                                             labelText: 'Create Username',
                                             border: OutlineInputBorder(),
@@ -141,6 +192,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: TextFormField(
+                                          controller: _passwordController,
                                           decoration: InputDecoration(
                                             labelText: 'Create Password',
                                             border: const OutlineInputBorder(),
@@ -168,6 +220,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                     children: [
                                       Expanded(
                                         child: TextFormField(
+                                          controller: _firstNameController,
                                           decoration: const InputDecoration(
                                             labelText: 'First Name',
                                             border: OutlineInputBorder(),
@@ -177,6 +230,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: TextFormField(
+                                          controller: _lastNameController,
                                           decoration: const InputDecoration(
                                             labelText: 'Last Name',
                                             border: OutlineInputBorder(),
@@ -187,6 +241,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                   ),
                                   const SizedBox(height: 25),
                                   TextFormField(
+                                    controller: _addressController,
                                     decoration: const InputDecoration(
                                       labelText: 'Address',
                                       border: OutlineInputBorder(),
@@ -194,6 +249,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                   ),
                                   const SizedBox(height: 25),
                                   TextFormField(
+                                    controller: _emailController,
                                     decoration: const InputDecoration(
                                       labelText: 'Email Address',
                                       border: OutlineInputBorder(),
@@ -205,6 +261,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                     children: [
                                       Expanded(
                                         child: TextFormField(
+                                          controller: _phoneController,
                                           decoration: const InputDecoration(
                                             labelText: 'Phone Number',
                                             border: OutlineInputBorder(),
@@ -361,8 +418,8 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                                 ? const Text(
                                                     'Tap to select image',
                                                   )
-                                                : Image.network(
-                                                    _selectedImage!.path,
+                                                : Image.file(
+                                                    File(_selectedImage!.path),
                                                     height: 100,
                                                     fit: BoxFit.cover,
                                                   ),
@@ -378,13 +435,14 @@ class _SignUpPage1State extends State<SignUpPage1> {
                         ),
                         const SizedBox(height: 30),
                         LngButton(
-                          text: 'Next >',
+                          text: 'Sign Up',
                           isOrange: true,
                           onPressed: () {
+                            _submitSignUp();
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const SignUpPage2(),
+                                builder: (_) => const MainScreen(),
                               ),
                             );
                           },

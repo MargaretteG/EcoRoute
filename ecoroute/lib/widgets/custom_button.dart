@@ -8,13 +8,13 @@ class LngButton extends StatelessWidget {
   final Widget? icon;
 
   const LngButton({
-    Key? key,
+    super.key,
     required this.text,
     required this.isOrange,
     required this.onPressed,
     this.icon,
     this.resize = false,
-  }) : super(key: key);
+  });
 
   factory LngButton.icon({
     Key? key,
@@ -95,13 +95,13 @@ class CategoryButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const CategoryButton({
-    Key? key,
+    super.key,
     required this.text,
     required this.icon,
     required this.isFilled,
     required this.isSelected,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

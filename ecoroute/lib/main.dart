@@ -62,7 +62,7 @@ class _WelcomePageState extends State<WelcomePage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 12),
-                  Image.asset('../assets/images/logo-green.png', height: 90),
+                  Image.asset('images/logo-green.png', height: 90),
 
                   Transform.translate(
                     offset: Offset(0, -20),
@@ -98,7 +98,7 @@ class _WelcomePageState extends State<WelcomePage> {
                         child: Transform.scale(
                           scale: 1.3, // zoom in
                           child: Image.asset(
-                            '../assets/images/tagaytay-bg-1.jpg',
+                            'images/tagaytay-bg-1.jpg',
                             fit: BoxFit.cover,
                             height: double.infinity,
                             width: double.infinity,
