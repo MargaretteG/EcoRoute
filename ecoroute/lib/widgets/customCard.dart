@@ -34,7 +34,7 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: widget.badgeColor, width: 3),
-        boxShadow: [
+        boxShadow: [ 
           BoxShadow(
             color: Colors.black.withOpacity(0.45),
             blurRadius: 10,

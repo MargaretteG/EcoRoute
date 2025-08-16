@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:ecoroute/main.dart';
 import 'dart:ui';
+import 'package:flutter/services.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,7 +16,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    Timer(const Duration(seconds: 6), () {
+    Timer(const Duration(seconds: 5), () {
       Navigator.of(context).pushReplacement(_createBlurRoute());
     });
   }
@@ -50,6 +51,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF142900),
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
     return Scaffold(
       backgroundColor: const Color(0xFF142900), // Dark green background
       body: Center(

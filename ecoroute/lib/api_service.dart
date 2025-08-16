@@ -8,8 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 class ApiService {
-  // 🔧 Change this to 10.0.2.2 if using emulator
-  static const String baseUrl = "http://192.168.100.11/Ecoroute/";
+  static const String baseUrl = "https://ecoroute-taal.online/";
   static const Duration requestTimeout = Duration(seconds: 10);
   static const Duration requestTimeoutUploadImage = Duration(seconds: 20);
 
@@ -37,13 +36,11 @@ class ApiService {
     required String phoneNum,
     required String nationality,
     required String dateBirth,
-    required int gender,
+    required String gender,
     required String username,
     required String password,
-    String? validID,
-    File? imageID,
   }) async {
-    final uri = Uri.parse("${baseUrl}sign_up.php");
+    final uri = Uri.parse("${baseUrl}signUpValidation.php");
 
     try {
       var request = http.MultipartRequest('POST', uri)
@@ -54,26 +51,39 @@ class ApiService {
         ..fields['phoneNum'] = phoneNum
         ..fields['nationality'] = nationality
         ..fields['dateBirth'] = dateBirth
-        ..fields['gender'] = gender.toString()
-        ..fields['ValidID'] = validID ?? ''
+        ..fields['gender'] = gender
         ..fields['username'] = username
         ..fields['password'] = password;
 
-      if (imageID != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'imageID', // matches PHP $_FILES['imageID']
-            imageID.path,
-          ),
-        );
-      }
-
-      // Send the request
       final streamedResponse = await request.send().timeout(
         requestTimeoutUploadImage,
       );
 
-      // Read and decode the response
+      final responseString = await streamedResponse.stream.bytesToString();
+      if (streamedResponse.statusCode == 200) {
+        return jsonDecode(responseString);
+      } else {
+        throw Exception("HTTP ${streamedResponse.statusCode}: $responseString");
+      }
+    } catch (e) {
+      throw Exception("Network error: ${e.toString()}");
+    }
+  }
+
+  // ✅ NEW: Sign In
+  Future<Map<String, dynamic>> signIn({
+    required String username,
+    required String password,
+  }) async {
+    final uri = Uri.parse("${baseUrl}loginValidation.php");
+
+    try {
+      var request = http.MultipartRequest('POST', uri)
+        ..fields['username'] = username
+        ..fields['password'] = password;
+
+      final streamedResponse = await request.send().timeout(requestTimeout);
+
       final responseString = await streamedResponse.stream.bytesToString();
       if (streamedResponse.statusCode == 200) {
         return jsonDecode(responseString);

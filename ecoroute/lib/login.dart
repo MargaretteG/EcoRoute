@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:ecoroute/widgets/custom_button.dart';
 import 'package:flutter/services.dart';
-
-// ... imports ...
+import 'package:ecoroute/api_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,12 +15,16 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
+  bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
+  final ApiService _apiService = ApiService();
+  final TextEditingController _usernameController = TextEditingController();
 
   final TextEditingController _passwordController = TextEditingController();
 
   Widget _buildTextField(String label) {
     return TextFormField(
+      controller: label == 'Username' ? _usernameController : null,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -56,21 +59,6 @@ class _LoginPageState extends State<LoginPage> {
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'Password is required';
-        }
-        if (value.length < 8) {
-          return 'Must be at least 8 characters';
-        }
-        if (!RegExp(r'[A-Z]').hasMatch(value)) {
-          return 'Include at least one uppercase letter';
-        }
-        if (!RegExp(r'[a-z]').hasMatch(value)) {
-          return 'Include at least one lowercase letter';
-        }
-        if (!RegExp(r'\d').hasMatch(value)) {
-          return 'Include at least one digit';
-        }
-        if (!RegExp(r'[!@#\$&*~]').hasMatch(value)) {
-          return 'Include at least one special character (!@#\$&*~)';
         }
         return null;
       },
@@ -179,16 +167,39 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 12),
                         LngButton(
-                          text: 'Sign In',
+                          text: _isLoading ? 'Signing In...' : 'Sign In',
                           isOrange: true,
-                          onPressed: () {
+                          onPressed: () async {
                             if (_formKey.currentState!.validate()) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const MainScreen(),
-                                ),
-                              );
+                              try {
+                                final result = await _apiService.signIn(
+                                  username: _usernameController.text.trim(),
+                                  password: _passwordController.text.trim(),
+                                );
+
+                                if (result['status'] == 'success') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const MainScreen(),
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result['message'] ?? 'Login failed',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: ${e.toString()}'),
+                                  ),
+                                );
+                              }
                             }
                           },
                         ),

@@ -72,7 +72,7 @@ class _MapPageState extends State<MapPage> {
                 children: [
                   SearchHeader(
                     iconColor: Colors.black,
-                    logoPath: '../images/logo-dark-green.png',
+                    logoPath: 'images/logo-dark-green.png',
                     searchBgColor: const Color(0xFFB2D8B2),
                   ),
 

@@ -10,6 +10,25 @@ import 'package:flutter/foundation.dart';
 import 'package:ecoroute/api_service.dart';
 import 'dart:io';
 
+// CONTROLLERS & VARIABLES
+// final _usernameController = TextEditingController();
+// final _passwordController = TextEditingController();
+// final _firstNameController = TextEditingController();
+// final _lastNameController = TextEditingController();
+// final _addressController = TextEditingController();
+// final _emailController = TextEditingController();
+// final _phoneController = TextEditingController();
+// final _dobController = TextEditingController();
+
+// bool _obscurePassword = true;
+// String nationality = '';
+// String gender = 'Male';
+// String id = 'Passport';
+// XFile? _selectedImage;
+
+// final List<String> genderOptions = ['Male', 'Female', 'Other'];
+// final List<String> idoptions = ['Passport', 'Driver\'s License', 'National ID'];
+
 class SignUpPage1 extends StatefulWidget {
   const SignUpPage1({super.key});
 
@@ -18,82 +37,146 @@ class SignUpPage1 extends StatefulWidget {
 }
 
 class _SignUpPage1State extends State<SignUpPage1> {
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _dobController = TextEditingController();
+
   bool _obscurePassword = true;
-  final TextEditingController _dobController = TextEditingController();
-
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _firstNameController = TextEditingController();
-  final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-
-  String gender = 'Male';
-  String id = 'National ID';
-  String nationality = 'Filipino';
-  final List<String> genderOptions = ['Male', 'Female', 'Prefer not to say'];
-  final List<String> idoptions = ['National ID', 'Passport', 'Drivers License'];
-
+  String nationality = '';
+  String gender = '';
+  String id = 'Passport';
   XFile? _selectedImage;
-  final ImagePicker _picker = ImagePicker();
+
+  final List<String> genderOptions = ['Male', 'Female', 'Other'];
+  final List<String> idoptions = [
+    'Passport',
+    'Driver\'s License',
+    'National ID',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure everything is cleared when page is loaded
+    _clearFields();
+  }
+
+  void _clearFields() {
+    _usernameController.clear();
+    _passwordController.clear();
+    _firstNameController.clear();
+    _lastNameController.clear();
+    _addressController.clear();
+    _emailController.clear();
+    _phoneController.clear();
+    _dobController.clear();
+    nationality = '';
+    gender = 'Male';
+    id = 'Passport';
+    _selectedImage = null;
+  }
+
+  int _genderToInt(String g) {
+    if (g.toLowerCase() == 'male') return 1;
+    if (g.toLowerCase() == 'female') return 2;
+    return 3;
+  }
 
   Future<void> _pickImage() async {
-    final image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
+    final ImagePicker picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
+    if (pickedFile != null) {
       setState(() {
-        _selectedImage = image;
+        _selectedImage = pickedFile;
       });
     }
   }
 
-  int _genderToInt(String g) {
-    if (g == 'Male') return 0;
-    if (g == 'Female') return 1;
-    return 2;
-  }
-
   Future<void> _submitSignUp() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (nationality.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Nationality is required')));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
     try {
       final api = ApiService();
       final result = await api.signUp(
-        firstName: _firstNameController.text,
-        lastName: _lastNameController.text,
-        address: _addressController.text,
-        email: _emailController.text,
-        phoneNum: _phoneController.text,
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        address: _addressController.text.trim(),
+        email: _emailController.text.trim(),
+        phoneNum: _phoneController.text.trim(),
         nationality: nationality,
-        dateBirth: _dobController.text,
-        gender: _genderToInt(gender),
-        username: _usernameController.text,
+        dateBirth: _dobController.text.trim(),
+        gender: gender,
+        username: _usernameController.text.trim(),
         password: _passwordController.text,
-        validID: id,
-        imageID: _selectedImage != null ? File(_selectedImage!.path) : null,
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Signup complete')),
+      if (!mounted) return;
+
+      final statusValue = result['status']?.toString().toLowerCase().trim();
+      if (statusValue == 'success' ||
+          statusValue == 'ok' ||
+          statusValue == 'true') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainScreen()),
         );
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // final double screenWidth = MediaQuery.of(context).size.width;
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Color(0xFF011901),
         statusBarIconBrightness: Brightness.light,
       ),
     );
+
+    Widget requiredTextField({
+      required TextEditingController controller,
+      required String label,
+      TextStyle? style,
+      InputDecoration? decoration,
+      bool readOnly = false,
+      bool obscureText = false,
+    }) {
+      return TextFormField(
+        controller: controller,
+        style: style,
+        readOnly: readOnly,
+        obscureText: obscureText,
+        decoration:
+            decoration ??
+            InputDecoration(
+              labelText: label,
+              border: const OutlineInputBorder(),
+            ),
+        validator: (value) =>
+            value == null || value.trim().isEmpty ? 'Input required' : null,
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFF011901),
@@ -109,20 +192,16 @@ class _SignUpPage1State extends State<SignUpPage1> {
                   PreferredSize(
                     preferredSize: const Size.fromHeight(25),
                     child: AppBar(
-                      backgroundColor: Color(0xFF011901),
+                      backgroundColor: const Color(0xFF011901),
                       elevation: 0,
                       automaticallyImplyLeading: true,
-                      iconTheme: const IconThemeData(
-                        color: Color.fromARGB(255, 255, 255, 255),
-                      ),
+                      iconTheme: const IconThemeData(color: Colors.white),
                     ),
                   ),
                   Container(
                     color: const Color(0xFF011901),
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 0),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Transform.translate(
                           offset: const Offset(0, -23),
@@ -142,7 +221,6 @@ class _SignUpPage1State extends State<SignUpPage1> {
                             ),
                           ),
                         ),
-
                         Transform.translate(
                           offset: const Offset(0, -30),
                           child: const Text(
@@ -159,293 +237,326 @@ class _SignUpPage1State extends State<SignUpPage1> {
                       ],
                     ),
                   ),
-                  // The rest of your form content (unchanged)
                   Container(
                     color: Colors.white,
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 30),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 30,
+                      horizontal: 5,
+                    ),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Form(
+                          key: _formKey,
                           child: FractionallySizedBox(
                             widthFactor: 0.95,
-                            child: Container(
-                              padding: const EdgeInsets.all(0),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _usernameController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Create Username',
-                                            border: OutlineInputBorder(),
-                                          ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: requiredTextField(
+                                        controller: _usernameController,
+                                        label: 'Create Username',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Create Username',
+                                          border: OutlineInputBorder(),
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _passwordController,
-                                          decoration: InputDecoration(
-                                            labelText: 'Create Password',
-                                            border: const OutlineInputBorder(),
-                                            suffixIcon: IconButton(
-                                              icon: Icon(
-                                                _obscurePassword
-                                                    ? Icons.visibility_off
-                                                    : Icons.visibility,
-                                              ),
-                                              onPressed: () {
-                                                setState(() {
-                                                  _obscurePassword =
-                                                      !_obscurePassword;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          obscureText: _obscurePassword,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 25),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _firstNameController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'First Name',
-                                            border: OutlineInputBorder(),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _lastNameController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Last Name',
-                                            border: OutlineInputBorder(),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 25),
-                                  TextFormField(
-                                    controller: _addressController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Address',
-                                      border: OutlineInputBorder(),
                                     ),
-                                  ),
-                                  const SizedBox(height: 25),
-                                  TextFormField(
-                                    controller: _emailController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Email Address',
-                                      border: OutlineInputBorder(),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: requiredTextField(
+                                        label: 'Create Password',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1,
+                                        ),
+                                        controller: _passwordController,
+                                        decoration: InputDecoration(
+                                          labelText: 'Create Password',
+                                          border: const OutlineInputBorder(),
+                                          suffixIcon: IconButton(
+                                            icon: Icon(
+                                              _obscurePassword
+                                                  ? Icons.visibility_off
+                                                  : Icons.visibility,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                _obscurePassword =
+                                                    !_obscurePassword;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        obscureText: _obscurePassword,
+                                      ),
                                     ),
-                                  ),
-
-                                  const SizedBox(height: 25),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _phoneController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Phone Number',
-                                            border: OutlineInputBorder(),
-                                          ),
+                                  ],
+                                ),
+                                const SizedBox(height: 25),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: requiredTextField(
+                                        label: 'First Name:',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1,
+                                        ),
+                                        controller: _firstNameController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'First Name',
+                                          border: OutlineInputBorder(),
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextFormField(
-                                          readOnly: true,
-                                          decoration: InputDecoration(
-                                            labelText: 'Nationality',
-                                            border: OutlineInputBorder(),
-                                            suffixIcon: const Icon(
-                                              Icons.arrow_drop_down,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: requiredTextField(
+                                        label: 'Last Name',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1,
+                                        ),
+                                        controller: _lastNameController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Last Name',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 25),
+                                requiredTextField(
+                                  label: 'Address',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    height: 1,
+                                  ),
+                                  controller: _addressController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Address',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 25),
+                                requiredTextField(
+                                  label: 'Email Address',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    height: 1,
+                                  ),
+                                  controller: _emailController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Email Address',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 25),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: requiredTextField(
+                                        label: 'Phone Number',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1,
+                                        ),
+                                        controller: _phoneController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Phone Number',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: TextFormField(
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1,
+                                        ),
+                                        readOnly: true,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Nationality',
+                                          border: OutlineInputBorder(),
+                                          suffixIcon: Icon(
+                                            Icons.arrow_drop_down,
+                                          ),
+                                        ),
+                                        controller: TextEditingController(
+                                          text: nationality,
+                                        ),
+                                        validator: (value) =>
+                                            value == null ||
+                                                value.trim().isEmpty
+                                            ? 'Input required'
+                                            : null,
+                                        onTap: () {
+                                          showCountryPicker(
+                                            context: context,
+                                            showPhoneCode: false,
+                                            onSelect: (Country country) {
+                                              setState(() {
+                                                nationality = country.name;
+                                              });
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 25),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: requiredTextField(
+                                        label: 'Date of Birth',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1,
+                                        ),
+                                        controller: _dobController,
+                                        readOnly: true,
+                                        decoration: InputDecoration(
+                                          labelText: 'Date of Birth',
+                                          border: const OutlineInputBorder(),
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(
+                                              Icons.calendar_today,
                                             ),
-                                          ),
-                                          controller: TextEditingController(
-                                            text: nationality,
-                                          ),
-                                          onTap: () {
-                                            showCountryPicker(
-                                              context: context,
-                                              showPhoneCode: false,
-                                              onSelect: (Country country) {
+                                            onPressed: () async {
+                                              final DateTime? pickedDate =
+                                                  await showDatePicker(
+                                                    context: context,
+                                                    initialDate: DateTime(2000),
+                                                    firstDate: DateTime(1900),
+                                                    lastDate: DateTime.now(),
+                                                  );
+                                              if (pickedDate != null) {
+                                                String formattedDate =
+                                                    "${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}-${pickedDate.year}";
                                                 setState(() {
-                                                  nationality = country.name;
+                                                  _dobController.text =
+                                                      formattedDate;
                                                 });
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  // TextFormField(
-                                  //   decoration: InputDecoration(
-                                  //     labelText: 'Password',
-                                  //     border: const OutlineInputBorder(),
-                                  //     suffixIcon: IconButton(
-                                  //       icon: Icon(
-                                  //         _obscurePassword
-                                  //             ? Icons.visibility_off
-                                  //             : Icons.visibility,
-                                  //       ),
-                                  //       onPressed: () {
-                                  //         setState(() {
-                                  //           _obscurePassword =
-                                  //               !_obscurePassword;
-                                  //         });
-                                  //       },
-                                  //     ),
-                                  //   ),
-                                  //   obscureText: _obscurePassword,
-                                  // ),
-                                  const SizedBox(height: 25),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _dobController,
-                                          readOnly: true,
-                                          decoration: InputDecoration(
-                                            labelText: 'Date of Birth',
-                                            border: const OutlineInputBorder(),
-                                            suffixIcon: IconButton(
-                                              icon: const Icon(
-                                                Icons.calendar_today,
-                                              ),
-                                              onPressed: () async {
-                                                final DateTime? pickedDate =
-                                                    await showDatePicker(
-                                                      context: context,
-                                                      initialDate: DateTime(
-                                                        2000,
-                                                      ),
-                                                      firstDate: DateTime(1900),
-                                                      lastDate: DateTime.now(),
-                                                    );
-                                                if (pickedDate != null) {
-                                                  String formattedDate =
-                                                      "${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}-${pickedDate.year}";
-                                                  setState(() {
-                                                    _dobController.text =
-                                                        formattedDate;
-                                                  });
-                                                }
-                                              },
-                                            ),
+                                              }
+                                            },
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: DropdownButtonFormField<String>(
-                                          value: gender,
-                                          isExpanded: true,
-                                          items: genderOptions.map((
-                                            String gender,
-                                          ) {
-                                            return DropdownMenuItem<String>(
-                                              value: gender,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1,
+                                          color: Colors.black,
+                                          fontFamily: 'BricolageGrotesque',
+                                        ),
+                                        value: gender,
+                                        isExpanded: true,
+                                        items: genderOptions.map((
+                                          String gender,
+                                        ) {
+                                          return DropdownMenuItem<String>(
+                                            value: gender,
+                                            child: Text(gender),
+                                          );
+                                        }).toList(),
+                                        onChanged: (String? newValue) {
+                                          setState(() {
+                                            gender = newValue ?? '';
+                                          });
+                                        },
+                                        validator: (value) =>
+                                            value == null ||
+                                                value.trim().isEmpty
+                                            ? 'Input required'
+                                            : null,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Gender',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 25),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1,
+                                          color: Colors.black,
+                                          fontFamily: 'BricolageGrotesque',
+                                        ),
 
-                                              child: Text(gender),
-                                            );
-                                          }).toList(),
-                                          onChanged: (String? newValue) {
-                                            setState(() {
-                                              gender = newValue!;
-                                            });
-                                          },
+                                        value: id,
+                                        items: idoptions.map((String idValue) {
+                                          return DropdownMenuItem<String>(
+                                            value: idValue,
+                                            child: Text(
+                                              idValue,
+                                              overflow: TextOverflow
+                                                  .ellipsis, // prevent text from going out of bounds
+                                              maxLines: 1,
+                                            ),
+                                          );
+                                        }).toList(),
+                                        onChanged: (String? newValue) {
+                                          setState(() {
+                                            id = newValue!;
+                                          });
+                                        },
+                                        decoration: const InputDecoration(
+                                          labelText: 'Valid ID',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: _pickImage,
+                                        child: InputDecorator(
                                           decoration: const InputDecoration(
-                                            labelText: 'Gender',
+                                            labelText: 'Upload Photo',
                                             border: OutlineInputBorder(),
                                           ),
+                                          child: _selectedImage == null
+                                              ? const Text(
+                                                  'Tap to select image',
+                                                )
+                                              : Image.file(
+                                                  File(_selectedImage!.path),
+                                                  height: 100,
+                                                  fit: BoxFit.cover,
+                                                ),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 25),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: DropdownButtonFormField<String>(
-                                          value: id,
-                                          items: idoptions.map((String id) {
-                                            return DropdownMenuItem<String>(
-                                              value: id,
-                                              child: Text(id),
-                                            );
-                                          }).toList(),
-                                          onChanged: (String? newValue) {
-                                            setState(() {
-                                              id = newValue!;
-                                            });
-                                          },
-                                          decoration: const InputDecoration(
-                                            labelText: 'Valid ID',
-                                            border: OutlineInputBorder(),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: InkWell(
-                                          onTap: _pickImage,
-                                          child: InputDecorator(
-                                            decoration: const InputDecoration(
-                                              labelText: 'Upload Photo',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            child: _selectedImage == null
-                                                ? const Text(
-                                                    'Tap to select image',
-                                                  )
-                                                : Image.file(
-                                                    File(_selectedImage!.path),
-                                                    height: 100,
-                                                    fit: BoxFit.cover,
-                                                  ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
                         const SizedBox(height: 30),
                         LngButton(
-                          text: 'Sign Up',
+                          text: _isLoading ? 'Signing Up...' : 'Sign Up',
                           isOrange: true,
-                          onPressed: () {
-                            _submitSignUp();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const MainScreen(),
-                              ),
-                            );
-                          },
+                          onPressed: _submitSignUp,
                         ),
                       ],
                     ),

@@ -19,10 +19,11 @@ class _MyHomePageState extends State<MyHomePage> {
   // final List<Widget> _screens = [const MyHomePage(), const CommunityPage()];
 
   final homeCategories = [
-    {'text': 'All', 'icon': Icons.star_border, 'isFilled': false},
-    {'text': 'Eco', 'icon': Icons.eco, 'isFilled': false},
+    {'text': 'All', 'icon': Icons.eco, 'isFilled': false},
+    {'text': 'Eco Parks', 'icon': Icons.park, 'isFilled': false},
+    {'text': 'Things to do', 'icon': Icons.local_activity, 'isFilled': false},
     {'text': 'Popular', 'icon': Icons.star_border, 'isFilled': false},
-    {'text': 'New', 'icon': Icons.fiber_new, 'isFilled': true},
+    {'text': 'Filter', 'icon': Icons.filter_list, 'isFilled': true},
   ];
 
   @override
@@ -171,7 +172,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     Column(
                       children: [
                         TouristSpotCard(
-                          imagePath: 'images/taal-basilica-sample.jpg',
+                          imagePath: 'images/taal-basilica-sample.JPG',
                           name: 'Taal Basilica -Church',
                           location: 'Brgy. Taal, Batangas',
                           starRating: 5,
@@ -180,14 +181,15 @@ class _MyHomePageState extends State<MyHomePage> {
                           badgeIcon: Icons.location_on,
                         ),
                         TouristSpotCard(
-                          imagePath: 'images/tourist-spot-sample.jpg',
-                          name: 'Taal Basilica -Church',
-                          location: 'Brgy. Taal, Batangas',
+                          imagePath: 'images/tourist-spot2.jpg',
+                          name: 'Another Tourist Spot',
+                          location: 'Brgy. Example, Batangas',
                           starRating: 5,
                           ecoRating: 4,
                           badgeColor: Colors.yellow,
                           badgeIcon: Icons.location_on,
                         ),
+
                       ],
                     ),
                   ],
