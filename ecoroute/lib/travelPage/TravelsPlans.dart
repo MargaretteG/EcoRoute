@@ -2,15 +2,25 @@ import 'package:ecoroute/forms/AddTravel.dart';
 import 'package:ecoroute/widgets/travelContainer.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customTravelheader.dart';
-// import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:ecoroute/widgets/emptyPage.dart';
 
 class TravelPlans extends StatelessWidget {
   const TravelPlans({super.key});
 
   @override
   Widget build(BuildContext context) {
+   
+    final List<Map<String, dynamic>> travelPlans = [
+      // {
+      //   'icon': Icons.wallet_travel_rounded,
+      //   'title': 'Unwind Trip',
+      //   'date': 'July 9, 2025',
+      //   'iconBackgroundColor': Colors.green,
+      // },
+    ];
+
     return Scaffold(
-      backgroundColor: Color(0xFF011901),
+      backgroundColor: const Color(0xFF011901),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -25,13 +35,15 @@ class TravelPlans extends StatelessWidget {
                 );
               },
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 10),
             Stack(
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 0),
                   child: Container(
-                    height: MediaQuery.of(context).size.height,
+                    constraints: BoxConstraints(minHeight: 500),
+
+                    // height: MediaQuery.of(context).size.height,
                     width: double.infinity,
                     decoration: const BoxDecoration(
                       color: Color.fromARGB(255, 255, 255, 255),
@@ -39,50 +51,48 @@ class TravelPlans extends StatelessWidget {
                         top: Radius.circular(50),
                       ),
                     ),
-                    child: Column(children: const [SizedBox(height: 600)]),
+                    child: travelPlans.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              children: [
+                                SizedBox(height: 10),
+                                EmptyState(
+                                  imagePath: 'images/19.png',
+                                  title: "No Travel Plans",
+                                  description:
+                                      "It looks like you haven’t created any travel plans yet. Start planning now!",
+                                  centerVertically: false,
+                                ),
+                              ],
+                            ),
+                          )
+                        : Column(
+                            children: travelPlans.map((plan) {
+                              return Column(
+                                children: [
+                                  SizedBox(height: 20),
+                                  TravelContainer(
+                                    icon: plan['icon'],
+                                    title: plan['title'],
+                                    date: plan['date'],
+                                    iconBackgroundColor:
+                                        plan['iconBackgroundColor'],
+                                    onTap: () {
+                                      // Navigate or show details
+                                    },
+                                    onEdit: () {
+                                      // Edit logic
+                                    },
+                                    onDelete: () {
+                                      // Delete logic
+                                    },
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                   ),
-                ),
-                Column(
-                  children: [
-                    SizedBox(height: 20),
-
-                    TravelContainer(
-                      icon: Icons.wallet_travel_rounded,
-                      title: 'Unwind Trip',
-                      date: 'July 9, 2025',
-                      iconBackgroundColor: Colors.green,
-                      onTap: () {
-                        // Navigate or show details
-                      },
-                      onEdit: () {
-                        // Edit logic
-                      },
-                      onDelete: () {
-                        // Delete logic
-                      },
-                    ),
-
-                    TravelContainer(
-                      icon: Icons.wallet_travel_rounded,
-                      title: 'Trip ko lang',
-                      date: 'July 9, 2025',
-                      iconBackgroundColor: const Color.fromARGB(
-                        255,
-                        150,
-                        76,
-                        175,
-                      ),
-                      onTap: () {
-                        // Navigate or show details
-                      },
-                      onEdit: () {
-                        // Edit logic
-                      },
-                      onDelete: () {
-                        // Delete logic
-                      },
-                    ),
-                  ],
                 ),
               ],
             ),

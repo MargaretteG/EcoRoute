@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customHeaderHome.dart';
 import 'package:ecoroute/widgets/customTopCategory.dart';
+import 'package:ecoroute/community/local.dart';
+import 'package:ecoroute/community/following.dart';
 
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key});
@@ -10,7 +12,7 @@ class CommunityPage extends StatefulWidget {
 }
 
 class _CommunityPageState extends State<CommunityPage> {
-  // int _currentIndex = 1;
+  int selectedCategoryIndex = 0;
 
   final commCategories = [
     {'text': 'Local', 'icon': Icons.newspaper_rounded, 'isFilled': false},
@@ -21,16 +23,36 @@ class _CommunityPageState extends State<CommunityPage> {
     },
   ];
 
+  List<Map<String, dynamic>> get updatedCategories {
+    return List.generate(commCategories.length, (index) {
+      return {
+        ...commCategories[index],
+        'isFilled': selectedCategoryIndex == index,
+      };
+    });
+  }
+
+  Widget _buildCategoryContent() {
+    switch (selectedCategoryIndex) {
+      case 0:
+        return const LocalPage(); // your local.dart file
+      case 1:
+        return const FollowingPage(); // your following.dart file
+      default:
+        return const SizedBox();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF011901),
+      backgroundColor: const Color(0xFF011901),
       body: Stack(
         children: [
           SingleChildScrollView(
             child: Column(
               children: [
-                SearchHeader(),
+                const SearchHeader(),
                 Padding(
                   padding: const EdgeInsets.only(
                     top: 0,
@@ -40,7 +62,14 @@ class _CommunityPageState extends State<CommunityPage> {
                   ),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: CategoryRow(categories: commCategories),
+                    child: CategoryRow(
+                      categories: updatedCategories,
+                      onCategorySelected: (index) {
+                        setState(() {
+                          selectedCategoryIndex = index;
+                        });
+                      },
+                    ),
                   ),
                 ),
                 Stack(
@@ -56,32 +85,15 @@ class _CommunityPageState extends State<CommunityPage> {
                             top: Radius.circular(50),
                           ),
                         ),
-                        child: Column(children: const [SizedBox(height: 600)]),
+                        child:
+                            _buildCategoryContent(), // <<--- ONLY CONTENT CHANGES
                       ),
                     ),
-                    Column(children: [
-                    
-                  ],
-                ),
                   ],
                 ),
               ],
             ),
           ),
-
-          // Positioned(
-          //   bottom: 0,
-          //   left: 0,
-          //   right: 0,
-          //   child: BottomNavBar(
-          //     currentIndex: _currentIndex,
-          //     onTap: (index) {
-          //       setState(() {
-          //         _currentIndex = index;
-          //       });
-          //     },
-          //   ),
-          // ),
         ],
       ),
     );

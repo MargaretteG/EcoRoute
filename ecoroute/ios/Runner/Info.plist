@@ -56,6 +56,10 @@
 <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 <string>This app uses your location for navigation and map features.</string>
 
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app needs access to your location.</string>
+
+
 <key>io.flutter.embedded_views_preview</key>
 <true/>
 

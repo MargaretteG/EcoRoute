@@ -18,7 +18,7 @@ class TravelHeader extends StatefulWidget {
 
   @override
   State<TravelHeader> createState() => _TravelHeaderState();
-}
+} 
 
 class _TravelHeaderState extends State<TravelHeader>
     with SingleTickerProviderStateMixin {

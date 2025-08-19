@@ -1,3 +1,4 @@
+import 'package:ecoroute/widgets/emptyPage.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customTravelheader.dart';
 
@@ -6,6 +7,8 @@ class TravelGroups extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final List<Map<String, dynamic>> travelGroup = [];
+
     return Scaffold(
       backgroundColor: Color(0xFF011901),
       body: SingleChildScrollView(
@@ -30,7 +33,24 @@ class TravelGroups extends StatelessWidget {
                         top: Radius.circular(50),
                       ),
                     ),
-                    child: Column(children: const [SizedBox(height: 600)]),
+                    child: travelGroup.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              children: [
+                                SizedBox(height: 10),
+                                EmptyState(
+                                  imagePath: 'images/18.png',
+                                  title: "No Travel Groups",
+                                  description:
+                                      "You’re not part of any travel groups yet. Join one or create your own to start connecting!",
+
+                                  centerVertically: false,
+                                ),
+                              ],
+                            ),
+                          )
+                        : Column(children: const [SizedBox(height: 600)]),
                   ),
                 ),
                 Column(children: [

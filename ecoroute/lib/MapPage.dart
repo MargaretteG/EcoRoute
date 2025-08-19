@@ -6,7 +6,7 @@ import 'package:ecoroute/widgets/bottomNavBar.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as osm;
-// import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -17,7 +17,7 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   int _currentIndex = 2;
-  late gmaps.GoogleMapController mapController;
+  gmaps.GoogleMapController? mapController;
 
   final gmaps.LatLng _center = const gmaps.LatLng(13.8893, 120.9360);
 
@@ -32,6 +32,28 @@ class _MapPageState extends State<MapPage> {
 
   void _onMapCreated(gmaps.GoogleMapController controller) {
     mapController = controller;
+
+    // Start from a zoomed-out PH view
+    controller.moveCamera(
+      gmaps.CameraUpdate.newCameraPosition(
+        const gmaps.CameraPosition(
+          target: gmaps.LatLng(12.8797, 121.7740), // Philippines center
+          zoom: 6.5, // not too far
+        ),
+      ),
+    );
+
+    // Smooth zoom-in animation to location
+    Future.delayed(const Duration(milliseconds: 1300), () {
+      controller.animateCamera(
+        gmaps.CameraUpdate.newCameraPosition(
+          gmaps.CameraPosition(
+            target: _center,
+            zoom: 14.0, // final zoom level
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -43,8 +65,8 @@ class _MapPageState extends State<MapPage> {
           kIsWeb
               ? FlutterMap(
                   options: MapOptions(
-                    center: osm.LatLng(13.8893, 120.9360),
-                    zoom: 14.0,
+                    center: osm.LatLng(12.8797, 121.7740), // PH center
+                    zoom: 7.5, // Medium zoom to start
                   ),
                   children: [
                     TileLayer(
@@ -52,22 +74,46 @@ class _MapPageState extends State<MapPage> {
                           'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                       subdomains: ['a', 'b', 'c'],
                     ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: osm.LatLng(13.8893, 120.9360),
+                          width: 40,
+                          height: 40,
+                          child: const Icon(
+                            Icons.location_pin,
+                            color: Colors.red,
+                            size: 40,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 )
               : gmaps.GoogleMap(
                   onMapCreated: _onMapCreated,
-                  initialCameraPosition: gmaps.CameraPosition(
-                    target: _center,
-                    zoom: 14.0,
+                  initialCameraPosition: const gmaps.CameraPosition(
+                    target: gmaps.LatLng(12.8797, 121.7740), // PH center
+                    zoom: 7.5, // Medium zoom to start
                   ),
                   myLocationEnabled: true,
                   myLocationButtonEnabled: true,
+                  markers: {
+                    gmaps.Marker(
+                      markerId: const gmaps.MarkerId("mainPin"),
+                      position: _center,
+                      infoWindow: const gmaps.InfoWindow(title: "My Location"),
+                      icon: gmaps.BitmapDescriptor.defaultMarkerWithHue(
+                        gmaps.BitmapDescriptor.hueRed,
+                      ),
+                    ),
+                  },
                 ),
 
           // Overlayed UI
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 0),
               child: Column(
                 children: [
                   SearchHeader(
@@ -75,7 +121,6 @@ class _MapPageState extends State<MapPage> {
                     logoPath: 'images/logo-dark-green.png',
                     searchBgColor: const Color(0xFFB2D8B2),
                   ),
-
                   Align(
                     alignment: Alignment.centerLeft,
                     child: CategoryRow(categories: commCategories),
@@ -84,6 +129,8 @@ class _MapPageState extends State<MapPage> {
               ),
             ),
           ),
+
+          // Bottom nav
           Positioned(
             bottom: 0,
             left: 0,
@@ -99,15 +146,6 @@ class _MapPageState extends State<MapPage> {
           ),
         ],
       ),
-
-      // bottomNavigationBar: BottomNavBar(
-      //   currentIndex: _currentIndex,
-      //   onTap: (index) {
-      //     setState(() {
-      //       _currentIndex = index;
-      //     });
-      //   },
-      // ),
     );
   }
 }

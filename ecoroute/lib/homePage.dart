@@ -78,7 +78,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                     fontSize: 40,
                                     color: Color(0xFF62ED7A),
                                     fontWeight: FontWeight.w900,
-                                  ),
+                                  ), 
                                 ),
                               ),
                               Transform.translate(

@@ -1,3 +1,4 @@
+import 'package:ecoroute/notificationPage.dart';
 import 'package:flutter/material.dart';
 
 class SearchHeader extends StatelessWidget {
@@ -31,7 +32,13 @@ class SearchHeader extends StatelessWidget {
             if (showSearch)
               Expanded(
                 child: TextField(
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(
+                    color:
+                        ThemeData.estimateBrightnessForColor(searchBgColor) ==
+                            Brightness.dark
+                        ? Colors.white
+                        : Color(0xFF011901),
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Find A Tourist Spot',
                     hintStyle: TextStyle(
@@ -53,7 +60,21 @@ class SearchHeader extends StatelessWidget {
               Spacer(),
             const SizedBox(width: 10),
 
-            Icon(Icons.notifications_none_outlined, color: iconColor, size: 30),
+            IconButton(
+              icon: Icon(
+                Icons.notifications_none_outlined,
+                color: iconColor,
+                size: 30,
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationsPage(),
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),

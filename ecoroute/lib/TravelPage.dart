@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customHeaderHome.dart';
 import 'package:ecoroute/widgets/customTopCategory.dart';
 import 'package:ecoroute/widgets/bottomNavBar.dart';
-import 'travelPage/TravelsPlans.dart';
+import 'travelPage/TravelsPlans.dart'; 
 import './travelPage/WishlistsPage.dart';
 import './travelPage/GroupsPage.dart';
 

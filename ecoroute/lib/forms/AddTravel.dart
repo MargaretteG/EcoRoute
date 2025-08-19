@@ -9,7 +9,7 @@ class AddTravel extends StatefulWidget {
 
 class _AddTravelState extends State<AddTravel> {
   DateTime? _startDate;
-  TimeOfDay? _startTime;
+  TimeOfDay? _startTime; 
   DateTime? _endDate;
   TimeOfDay? _endTime;
 
