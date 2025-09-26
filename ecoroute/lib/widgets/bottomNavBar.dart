@@ -80,8 +80,9 @@ class BottomNavBar extends StatelessWidget {
               elevation: 0,
               selectedItemColor: const Color(0xFFFF9616),
               unselectedItemColor: Colors.white,
-              selectedFontSize: 12,
-              unselectedFontSize: 10,
+              selectedFontSize: 10,
+              unselectedFontSize: 9,
+
               type: BottomNavigationBarType.fixed,
               items: const [
                 BottomNavigationBarItem(

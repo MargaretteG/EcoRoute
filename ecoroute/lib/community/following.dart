@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 class FollowingPage extends StatelessWidget {
   const FollowingPage({super.key});
 
-  final List<String> followingPosts = const []; // simulate empty
-
+  static const List<String> followingPosts = const [];
+  static bool get hasPosts => followingPosts.isNotEmpty;
   @override
   Widget build(BuildContext context) {
-    if (followingPosts.isEmpty) {
+    if (followingPosts.isEmpty) { 
       return Column(
         children: [
           SizedBox(height: 30),

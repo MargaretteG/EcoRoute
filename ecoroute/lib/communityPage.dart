@@ -3,6 +3,8 @@ import 'package:ecoroute/widgets/customHeaderHome.dart';
 import 'package:ecoroute/widgets/customTopCategory.dart';
 import 'package:ecoroute/community/local.dart';
 import 'package:ecoroute/community/following.dart';
+import 'package:ecoroute/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key});
@@ -12,6 +14,29 @@ class CommunityPage extends StatefulWidget {
 }
 
 class _CommunityPageState extends State<CommunityPage> {
+  Map<String, dynamic>? _user;
+  final _api = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  } 
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accountId = prefs.getInt("accountId");
+    if (accountId == null) return;
+
+    final userData = await _api.fetchProfile(accountId: accountId);
+
+    if (!mounted) return; // prevent setState after dispose
+
+    setState(() {
+      _user = userData;
+    });
+  }
+
   int selectedCategoryIndex = 0;
 
   final commCategories = [
@@ -35,9 +60,9 @@ class _CommunityPageState extends State<CommunityPage> {
   Widget _buildCategoryContent() {
     switch (selectedCategoryIndex) {
       case 0:
-        return const LocalPage(); // your local.dart file
+        return const LocalPage();
       case 1:
-        return const FollowingPage(); // your following.dart file
+        return const FollowingPage();
       default:
         return const SizedBox();
     }
@@ -52,7 +77,13 @@ class _CommunityPageState extends State<CommunityPage> {
           SingleChildScrollView(
             child: Column(
               children: [
-                const SearchHeader(),
+                SearchHeader(
+                  profilePicUrl:
+                      _user?['profilePic'] != null &&
+                          _user!['profilePic'].isNotEmpty
+                      ? "https://ecoroute-taal.online/uploads/profile_pics/${_user!['profilePic']}"
+                      : null,
+                ),
                 Padding(
                   padding: const EdgeInsets.only(
                     top: 0,
@@ -77,16 +108,24 @@ class _CommunityPageState extends State<CommunityPage> {
                     Padding(
                       padding: const EdgeInsets.only(top: 0),
                       child: Container(
-                        height: MediaQuery.of(context).size.height,
+                        height: selectedCategoryIndex == 0
+                            ? (LocalPage.hasPosts ? null : 900)
+                            : (FollowingPage.hasPosts ? null : 900),
                         width: double.infinity,
-                        decoration: const BoxDecoration(
-                          color: Color.fromARGB(255, 255, 255, 255),
+                        decoration: BoxDecoration(
+                          color: selectedCategoryIndex == 0
+                              ? (LocalPage.hasPosts
+                                    ? Color.fromARGB(220, 224, 255, 224)
+                                    : Color.fromARGB(255, 255, 255, 255))
+                              : (FollowingPage.hasPosts
+                                    ? Color.fromARGB(220, 224, 255, 224)
+                                    : Color.fromARGB(255, 255, 255, 255)),
+                          // color: const Color.fromARGB(195, 225, 240, 226),
                           borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(50),
+                            top: Radius.circular(25),
                           ),
                         ),
-                        child:
-                            _buildCategoryContent(), // <<--- ONLY CONTENT CHANGES
+                        child: _buildCategoryContent(),
                       ),
                     ),
                   ],

@@ -1,21 +1,47 @@
 // main_screen.dart
+import 'dart:convert';
 import 'package:ecoroute/MapPage.dart';
 import 'package:ecoroute/TravelPage.dart';
 import 'package:ecoroute/communityPage.dart';
 import 'package:ecoroute/homePage.dart';
 import 'package:ecoroute/profile.dart';
+import 'package:ecoroute/widgets/customHeaderHome.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/bottomNavBar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final Map<String, dynamic>? userData; // ✅ proper param
+
+  const MainScreen({super.key, this.userData});
 
   @override
-  State<MainScreen> createState() => _MainScreenState(); 
+  State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  Map<String, dynamic>? _userData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userString = prefs.getString("userData");
+    if (userString != null) {
+      setState(() {
+        _userData = jsonDecode(userString);
+      });
+    } else {
+      setState(() {
+        _userData = widget.userData;
+      });
+    }
+  }
 
   Widget _getCurrentContent() {
     switch (_currentIndex) {
@@ -24,11 +50,12 @@ class _MainScreenState extends State<MainScreen> {
       case 1:
         return const CommunityPage();
       case 2:
-        return const MapPage(); // includes its own header
+        return const MapPage();
       case 3:
-        return const TravelPage(); // includes its own header
+        return const TravelPage();
       case 4:
-        return const Profile(); // includes its own header
+        return Profile(userData: _userData);
+
       default:
         return const MyHomePage();
     }

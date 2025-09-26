@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 
 class CategoryRow extends StatefulWidget {
   final List<Map<String, dynamic>> categories;
-  final ValueChanged<int>? onCategorySelected; // Optional
+  final ValueChanged<int>? onCategorySelected;
 
   const CategoryRow({
     super.key,
     required this.categories,
-    this.onCategorySelected, // Use only when needed
+    this.onCategorySelected,
   });
 
   @override

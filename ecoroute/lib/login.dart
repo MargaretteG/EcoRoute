@@ -178,10 +178,12 @@ class _LoginPageState extends State<LoginPage> {
                                 );
 
                                 if (result['status'] == 'success') {
-                                  Navigator.push(
+                                  final userData = result['user'];
+                                  Navigator.pushReplacement(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => const MainScreen(),
+                                      builder: (context) =>
+                                          MainScreen(userData: result['user']),
                                     ),
                                   );
                                 } else {

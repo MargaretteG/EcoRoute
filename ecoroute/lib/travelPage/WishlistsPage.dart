@@ -1,25 +1,49 @@
 import 'package:ecoroute/widgets/emptyPage.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customTravelheader.dart';
+import 'package:ecoroute/widgets/wishlistCard.dart'; // Import the new card widget
 
 class WishlistsContent extends StatelessWidget {
   const WishlistsContent({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> travelWishlist = [];
+    // For now static sample data; in future replace this with DB data
+    final List<Map<String, dynamic>> travelWishlist = [
+      {
+        "imagePath": "images/home-photo1-1.jpg",
+        "name": "Taal Basilica",
+        "location": "Taal, Philippines",
+        "starRating": 5,
+        "ecoRating": 4,
+      },
+      {
+        "imagePath": "images/home-photo1-1.jpg",
+        "name": "Taal Basilica",
+        "location": "Taal, Philippines",
+        "starRating": 5,
+        "ecoRating": 5,
+      },
+      {
+        "imagePath": "images/home-photo1-1.jpg",
+        "name": "Taal Basilica",
+        "location": "Taal, Philippines",
+        "starRating": 5,
+        "ecoRating": 2,
+      },
+    ];
 
     return Scaffold(
-      backgroundColor: Color(0xFF011901),
+      backgroundColor: const Color(0xFF011901),
       body: SingleChildScrollView(
         child: Column(
           children: [
             TravelHeader(
-              title: 'Your Travel Wishlist',
+              title: 'Travel Wishlist',
               subtitle: '.',
               showBottomRow: false,
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Stack(
               children: [
                 Padding(
@@ -44,18 +68,31 @@ class WishlistsContent extends StatelessWidget {
                                   title: "No Wishlist Yet",
                                   description:
                                       "Looks like your travel wishlist is empty. Start adding destinations you’d love to visit!",
-
                                   centerVertically: false,
                                 ),
                               ],
                             ),
                           )
-                        : Column(children: const [SizedBox(height: 500)]),
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 17,
+                              horizontal: 10,
+                            ),
+                            child: Column(
+                              children: travelWishlist.map((spot) {
+                                return WishlistSpotCard(
+                                  imagePath: spot["imagePath"],
+                                  name: spot["name"],
+                                  location: spot["location"],
+                                  starRating: spot["starRating"],
+                                  ecoRating: spot["ecoRating"],
+
+                                  category: "unknown",
+                                );
+                              }).toList(),
+                            ),
+                          ),
                   ),
-                ),
-                Column(children: [
-                    
-                  ],
                 ),
               ],
             ),

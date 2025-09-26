@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customHeaderHome.dart';
 import 'package:ecoroute/widgets/customTopCategory.dart';
 import 'package:ecoroute/widgets/bottomNavBar.dart';
-import 'travelPage/TravelsPlans.dart'; 
+import 'travelPage/TravelsPlans.dart';
 import './travelPage/WishlistsPage.dart';
 import './travelPage/GroupsPage.dart';
+import 'package:ecoroute/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TravelPage extends StatefulWidget {
   const TravelPage({super.key});
@@ -14,6 +16,27 @@ class TravelPage extends StatefulWidget {
 }
 
 class _TravelPageState extends State<TravelPage> {
+  Map<String, dynamic>? _user;
+  final _api = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accountId = prefs.getInt("accountId");
+    if (accountId == null) return;
+
+    final userData = await _api.fetchProfile(accountId: accountId);
+    setState(() {
+      _user = userData;
+      // _loading = false;
+    });
+  }
+
   int _currentIndex = 3;
   int selectedCategoryIndex = 0;
 
@@ -65,7 +88,14 @@ class _TravelPageState extends State<TravelPage> {
         children: [
           Column(
             children: [
-              const SearchHeader(showSearch: false),
+              SearchHeader(
+                showSearch: false,
+                profilePicUrl:
+                    _user?['profilePic'] != null &&
+                        _user!['profilePic'].isNotEmpty
+                    ? "https://ecoroute-taal.online/uploads/profile_pics/${_user!['profilePic']}"
+                    : null,
+              ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: CategoryRow(
@@ -77,6 +107,8 @@ class _TravelPageState extends State<TravelPage> {
                   },
                 ),
               ),
+
+              const SizedBox(height: 5),
 
               Expanded(child: _buildCategoryContent()),
             ],

@@ -18,7 +18,7 @@ class TravelHeader extends StatefulWidget {
 
   @override
   State<TravelHeader> createState() => _TravelHeaderState();
-} 
+}
 
 class _TravelHeaderState extends State<TravelHeader>
     with SingleTickerProviderStateMixin {
@@ -51,7 +51,7 @@ class _TravelHeaderState extends State<TravelHeader>
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 10),
           const Divider(color: Colors.white, thickness: 0.3),
           if (widget.showBottomRow)
             Padding(

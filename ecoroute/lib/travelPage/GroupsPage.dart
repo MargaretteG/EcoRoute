@@ -15,7 +15,7 @@ class TravelGroups extends StatelessWidget {
         child: Column(
           children: [
             TravelHeader(
-              title: 'Your Travel Groups',
+              title: 'Travel Groups',
               subtitle: 'Create New Travel Group',
               showBottomRow: true,
             ),

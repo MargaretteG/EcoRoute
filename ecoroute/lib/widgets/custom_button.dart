@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class LngButton extends StatelessWidget {
   final String text;
   final bool isOrange;
-  final bool resize; // ← new key
+  final bool resize;
   final VoidCallback onPressed;
   final Widget? icon;
 
@@ -121,7 +121,7 @@ class CategoryButton extends StatelessWidget {
         : (isSelected ? orange : Colors.white);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
@@ -133,19 +133,91 @@ class CategoryButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: iconTextColor, size: 25),
-            const SizedBox(width: 8),
+            Icon(icon, color: iconTextColor, size: 20),
+            const SizedBox(width: 5),
             Text(
               text,
               style: TextStyle(
                 color: iconTextColor,
-                fontSize: 15,
+                fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w100,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// Floating Button for recommendations and analytics in Map Page
+class FloatingBtn extends StatefulWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color auraColor;
+  final VoidCallback onPressed;
+
+  const FloatingBtn({
+    super.key,
+    required this.icon,
+    this.iconColor = const Color(0xFF64F67A),
+    this.auraColor = const Color.fromARGB(255, 255, 146, 14),
+    required this.onPressed,
+  });
+
+  @override
+  State<FloatingBtn> createState() => _FloatingBtnState();
+}
+
+class _FloatingBtnState extends State<FloatingBtn>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..repeat(reverse: true);
+
+    _animation = Tween<double>(
+      begin: 6,
+      end: 20,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: widget.auraColor.withOpacity(1),
+                blurRadius: _animation.value,
+                spreadRadius: _animation.value / 3,
+              ),
+            ],
+          ),
+          child: FloatingActionButton(
+            backgroundColor: const Color(0xFF003F0C),
+            shape: const CircleBorder(),
+            onPressed: widget.onPressed,
+            child: Icon(widget.icon, color: widget.iconColor),
+          ),
+        );
+      },
     );
   }
 }

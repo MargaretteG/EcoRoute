@@ -135,9 +135,13 @@ class _SignUpPage1State extends State<SignUpPage1> {
       if (statusValue == 'success' ||
           statusValue == 'ok' ||
           statusValue == 'true') {
+        final userData = result['user'];
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MainScreen()),
+          MaterialPageRoute(
+            builder: (context) =>
+                MainScreen(userData: userData), // pass from backend
+          ),
         );
       }
     } finally {

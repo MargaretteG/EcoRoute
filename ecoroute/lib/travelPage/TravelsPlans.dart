@@ -1,4 +1,5 @@
 import 'package:ecoroute/forms/AddTravel.dart';
+import 'package:ecoroute/widgets/popup.dart';
 import 'package:ecoroute/widgets/travelContainer.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customTravelheader.dart';
@@ -9,7 +10,6 @@ class TravelPlans extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-   
     final List<Map<String, dynamic>> travelPlans = [
       // {
       //   'icon': Icons.wallet_travel_rounded,
@@ -25,13 +25,20 @@ class TravelPlans extends StatelessWidget {
         child: Column(
           children: [
             TravelHeader(
-              title: 'Your Travel Plans',
+              title: 'Travel Plans',
               subtitle: 'Create New Travel Plan',
               showBottomRow: true,
               onIconTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddTravel()),
+                showDialog(
+                  context: context,
+                  builder: (_) => AddTravelPopup(
+                    onConfirm: (data) {
+                      print("Travel Title: ${data['title']}");
+                      print("Description: ${data['description']}");
+                      print("Date: ${data['date']}");
+                      print("Days: ${data['days']}");
+                    },
+                  ),
                 );
               },
             ),

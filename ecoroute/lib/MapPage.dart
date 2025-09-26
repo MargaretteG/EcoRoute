@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as osm;
 import 'dart:async';
+import 'package:ecoroute/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -16,6 +18,27 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
+  Map<String, dynamic>? _user;
+  final _api = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accountId = prefs.getInt("accountId");
+    if (accountId == null) return;
+
+    final userData = await _api.fetchProfile(accountId: accountId);
+    setState(() {
+      _user = userData;
+      // _loading = false;
+    });
+  }
+
   int _currentIndex = 2;
   gmaps.GoogleMapController? mapController;
 
@@ -120,7 +143,14 @@ class _MapPageState extends State<MapPage> {
                     iconColor: Colors.black,
                     logoPath: 'images/logo-dark-green.png',
                     searchBgColor: const Color(0xFFB2D8B2),
+
+                    profilePicUrl:
+                        _user?['profilePic'] != null &&
+                            _user!['profilePic'].isNotEmpty
+                        ? "https://ecoroute-taal.online/uploads/profile_pics/${_user!['profilePic']}"
+                        : null,
                   ),
+
                   Align(
                     alignment: Alignment.centerLeft,
                     child: CategoryRow(categories: commCategories),
@@ -131,19 +161,19 @@ class _MapPageState extends State<MapPage> {
           ),
 
           // Bottom nav
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: BottomNavBar(
-              currentIndex: _currentIndex,
-              onTap: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-            ),
-          ),
+          // Positioned(
+          //   bottom: 0,
+          //   left: 0,
+          //   right: 0,
+          //   child: BottomNavBar(
+          //     currentIndex: _currentIndex,
+          //     onTap: (index) {
+          //       setState(() {
+          //         _currentIndex = index;
+          //       });
+          //     },
+          //   ),
+          // ),
         ],
       ),
     );
