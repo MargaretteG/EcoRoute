@@ -1,10 +1,16 @@
+import 'dart:io';
+import 'package:ecoroute/api_service.dart';
+import 'package:ecoroute/widgets/colorPicker.dart';
+import 'package:ecoroute/widgets/popup.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import 'package:ecoroute/notificationPage.dart';
 import 'package:ecoroute/widgets/bottomPopup.dart';
 import 'package:ecoroute/widgets/custom_button.dart';
 import 'package:flutter/material.dart';
 
 class AddTravel extends StatefulWidget {
-  final Map<String, dynamic> travelData; // incoming popup data
+  final Map<String, dynamic> travelData;
 
   const AddTravel({super.key, required this.travelData});
 
@@ -13,10 +19,12 @@ class AddTravel extends StatefulWidget {
 }
 
 class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
+  Color selectedColor = const Color.fromARGB(255, 235, 255, 235);
   late String title;
   late String description;
   late DateTime startDate;
   late int days;
+  Color? _selectedColor;
 
   bool isEditingTitle = false;
   bool isEditingDescription = false;
@@ -128,19 +136,45 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
     );
   }
 
-  void _saveToDatabaseStub() {
-    final payload = {
-      'title': title,
-      'description': description,
-      'startDate': startDate.toIso8601String(),
-      'days': days,
-      'travelDays': travelDays,
-    };
+  //Api Connection
+  Future<bool> _saveToDatabase() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final accountId = prefs.getInt('accountId') ?? 0;
 
-    debugPrint('Prepared payload for save: $payload');
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Saved (stub)')));
+      if (accountId == 0) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("User not logged in")));
+        return false;
+      }
+
+      String customColorHex =
+          '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}';
+
+      final response = await addTravelPlan(
+        accountId: accountId,
+        travelTitle: title.isNotEmpty ? title : "Untitled Travel",
+        travelDescription: description,
+        travelStartDate: DateFormat('yyyy-MM-dd').format(startDate),
+        travelNumDays: days.toString(),
+        customColor: customColorHex,
+      );
+
+      if (response['status'] == 'success') {
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed: ${response['message']}")),
+        );
+        return false;
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error saving: $e")));
+      return false;
+    }
   }
 
   @override
@@ -209,17 +243,31 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
                           children: [
                             const Divider(color: Colors.white, thickness: 0.2),
                             const SizedBox(height: 20),
-                            Align(
-                              alignment: Alignment.topLeft,
-                              child: Text(
-                                'Create Your\nTravel Plan',
-                                style: const TextStyle(
-                                  height: 0.9,
-                                  color: Colors.white,
-                                  fontSize: 30,
-                                  fontWeight: FontWeight.w900,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Create Your\nTravel Plan',
+                                    style: TextStyle(
+                                      height: 0.9,
+                                      color: Colors.white,
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 10),
+
+                                ColorPickerWidget(
+                                  selectedColor: selectedColor,
+                                  onColorSelected: (color) {
+                                    setState(() {
+                                      selectedColor = color;
+                                    });
+                                  },
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -229,8 +277,8 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
                         padding: const EdgeInsets.only(top: 10, bottom: 0),
                         child: Container(
                           width: double.infinity,
-                          decoration: const BoxDecoration(
-                            color: Color.fromARGB(255, 235, 255, 235),
+                          decoration: BoxDecoration(
+                            color: selectedColor,
                             borderRadius: BorderRadius.vertical(
                               top: Radius.circular(25),
                             ),
@@ -675,9 +723,63 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
                                             shadowColor: Colors.black
                                                 .withOpacity(1),
                                           ),
-                                          onPressed: _saveToDatabaseStub,
+                                          onPressed: () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (_) => PopUp(
+                                                title: "Save Travel Plan",
+                                                headerIcon: Icons
+                                                    .check_circle_outline_rounded,
+                                                description:
+                                                    "Are you sure you want to save this travel plan?",
+                                                confirmText: "Save",
+                                                hasTextField: false,
+                                                onConfirm: () async {
+                                                  Navigator.pop(
+                                                    context,
+                                                    true,
+                                                  ); // close popup and confirm save
+                                                },
+                                              ),
+                                            );
 
-                                          child: Text(
+                                            if (confirm == true) {
+                                              // Perform loading while saving
+                                              showDialog(
+                                                context: context,
+                                                barrierDismissible: false,
+                                                builder: (_) => const Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        color: Colors.green,
+                                                      ),
+                                                ),
+                                              );
+
+                                              final response =
+                                                  await _saveToDatabase();
+
+                                              // Close loading
+                                              Navigator.pop(context);
+
+                                              if (response == true) {
+                                                // ✅ When successfully saved, pop back to TravelPlans with true
+                                                Navigator.pop(context, true);
+                                              } else {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      "Failed to save travel plan",
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          },
+
+                                          child: const Text(
                                             'Save Travel',
                                             style: TextStyle(
                                               fontSize: 15,

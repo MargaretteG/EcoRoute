@@ -1,3 +1,4 @@
+import 'package:ecoroute/api_service.dart';
 import 'package:ecoroute/widgets/bottomPopup.dart';
 import 'package:ecoroute/widgets/feedback.dart';
 import 'package:ecoroute/widgets/menu_forRestaurant.dart';
@@ -14,26 +15,32 @@ class DestinationInfoPage extends StatefulWidget {
   final String openingHoursWeekdays;
   final String openingHoursWeekends;
   final String contact;
-  final String? email;
+  final String email;
   final String highlights;
   final String category;
   final int ecoRating;
-  final int starRating;
+  final double starRating;
+  final int establishmentId;
+  final int userId;
+  final bool isFavorite;
 
   const DestinationInfoPage({
     super.key,
-    required this.imagePath,
-    required this.name,
-    required this.location,
-    required this.description,
-    required this.openingHoursWeekdays,
-    required this.openingHoursWeekends,
-    required this.contact,
-    required this.ecoRating,
-    required this.starRating,
-    required this.highlights,
-    required this.category,
-    this.email,
+    this.imagePath = '',
+    this.name = '',
+    this.location = '',
+    this.description = '',
+    this.openingHoursWeekdays = '',
+    this.openingHoursWeekends = '',
+    this.contact = '',
+    this.email = '',
+    this.highlights = '',
+    this.category = '',
+    this.ecoRating = 0,
+    this.starRating = 0.0,
+    this.establishmentId = 0,
+    this.userId = 0,
+    this.isFavorite = false,
   });
 
   @override
@@ -106,11 +113,33 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
   @override
   void initState() {
     super.initState();
+    isFavorite = widget.isFavorite;
     _scrollController.addListener(() {
       setState(() {
         _scrollOffset = _scrollController.offset;
       });
     });
+  }
+
+  //Heart Icon
+  Future<void> _toggleFavorite() async {
+    setState(() {
+      isFavorite = !isFavorite; // update UI immediately
+    });
+
+    try {
+      await addOrUpdateFavorite(
+        userId: widget.userId,
+        establishment_id: widget.establishmentId,
+        favoriteStatus: isFavorite ? 1 : 0,
+      );
+    } catch (e) {
+      // revert if API call fails
+      setState(() {
+        isFavorite = !isFavorite;
+      });
+      debugPrint("Failed to update favorite: $e");
+    }
   }
 
   @override
@@ -175,11 +204,40 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                 },
                                 itemCount: images.length,
                                 itemBuilder: (context, index) {
-                                  return Image.asset(
-                                    images[index]["image"]!,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                  );
+                                  final imagePath = images[index]["image"]!;
+
+                                  // Only the first image comes from network, rest are local assets
+                                  if (index == 0) {
+                                    return Image.network(
+                                      imagePath,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      loadingBuilder:
+                                          (context, child, loadingProgress) {
+                                            if (loadingProgress == null)
+                                              return child;
+                                            return const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            );
+                                          },
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              const Center(
+                                                child: Icon(
+                                                  Icons.broken_image,
+                                                  size: 50,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                    );
+                                  } else {
+                                    return Image.asset(
+                                      imagePath,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                    );
+                                  }
                                 },
                               ),
                             ),
@@ -395,18 +453,33 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                             ),
                                           if (widget.ecoRating == 0)
                                             Row(
-                                              children: List.generate(
-                                                5,
-
-                                                (index) => Icon(
-                                                  Icons.star,
-                                                  size: 15,
-                                                  color:
-                                                      index < widget.starRating
-                                                      ? Colors.amber
-                                                      : Colors.grey,
-                                                 ),
-                                              ),
+                                              children: List.generate(5, (
+                                                index,
+                                              ) {
+                                                if (index <
+                                                    widget.starRating.floor()) {
+                                                  return const Icon(
+                                                    Icons.star,
+                                                    size: 14,
+                                                    color: Colors.amber,
+                                                  );
+                                                } else if (index <
+                                                        widget.starRating &&
+                                                    widget.starRating % 1 !=
+                                                        0) {
+                                                  return const Icon(
+                                                    Icons.star_half,
+                                                    size: 14,
+                                                    color: Colors.amber,
+                                                  );
+                                                } else {
+                                                  return const Icon(
+                                                    Icons.star,
+                                                    size: 14,
+                                                    color: Colors.grey,
+                                                  );
+                                                }
+                                              }),
                                             ),
                                         ],
                                       ),
@@ -482,21 +555,45 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                               ),
                               // Contact Info
                               SizedBox(height: 9),
-                              Row(
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    flex: 5,
-                                    child: Row(
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.phone_rounded,
+                                        size: 15,
+                                        color: Colors.black87,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Expanded(
+                                        child: Text(
+                                          widget.contact,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.black87,
+                                            height: 1,
+                                          ),
+                                          overflow: TextOverflow.visible,
+                                          softWrap: true,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (widget.email != null &&
+                                      widget.email!.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Row(
                                       children: [
                                         const Icon(
-                                          Icons.phone_rounded,
+                                          Icons.email_rounded,
                                           size: 15,
                                           color: Colors.black87,
                                         ),
                                         const SizedBox(width: 5),
                                         Expanded(
                                           child: Text(
-                                            widget.contact,
+                                            widget.email!,
                                             style: const TextStyle(
                                               fontSize: 12,
                                               color: Colors.black87,
@@ -508,37 +605,7 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  if (widget.email != null &&
-                                      widget.email!.isNotEmpty)
-                                    Expanded(
-                                      flex: 5,
-                                      child: Align(
-                                        alignment: Alignment.centerRight,
-                                        child: Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.email_rounded,
-                                              size: 15,
-                                              color: Colors.black87,
-                                            ),
-                                            const SizedBox(width: 5),
-                                            Expanded(
-                                              child: Text(
-                                                widget.email!,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.black87,
-                                                  height: 1,
-                                                ),
-                                                overflow: TextOverflow.visible,
-                                                softWrap: true,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
+                                  ],
                                 ],
                               ),
 
@@ -572,71 +639,104 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                               ),
 
                               const SizedBox(height: 8),
-                              Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  color: const Color.fromARGB(
-                                    255,
-                                    255,
-                                    242,
-                                    224,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      spreadRadius: 0.3,
-                                      blurRadius: 6,
-                                      offset: const Offset(2, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        widget.description,
-                                        maxLines: _isExpandeddesc ? null : 4,
-                                        overflow: _isExpandeddesc
-                                            ? TextOverflow.visible
-                                            : TextOverflow.ellipsis,
-                                        textAlign: TextAlign.justify,
-                                        style: const TextStyle(
-                                          fontSize: 13.5,
-                                          color: Colors.black87,
-                                          height: 1.4,
-                                        ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 0,
+                                ), // outer padding
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    // Measure if text exceeds 5 lines
+                                    final textSpan = TextSpan(
+                                      text: widget.description,
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        color: Colors.black87,
+                                        height: 1.4,
                                       ),
+                                    );
+                                    final textPainter = TextPainter(
+                                      text: textSpan,
+                                      maxLines: 5,
+                                      textDirection: TextDirection.ltr,
+                                    )..layout(maxWidth: constraints.maxWidth);
 
-                                      // "See more / See less"
-                                      if (widget.description.length > 5)
-                                        GestureDetector(
-                                          onTap: () {
-                                            setState(() {
-                                              _isExpandeddesc =
-                                                  !_isExpandeddesc;
-                                            });
-                                          },
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 6,
+                                    final isOverflowing =
+                                        textPainter.didExceedMaxLines;
+
+                                    return Container(
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        color: const Color.fromARGB(
+                                          255,
+                                          255,
+                                          242,
+                                          224,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.2,
                                             ),
-                                            child: Text(
-                                              _isExpandeddesc
-                                                  ? "See less"
-                                                  : "See more",
+                                            spreadRadius: 0.3,
+                                            blurRadius: 6,
+                                            offset: const Offset(2, 3),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              widget.description,
+                                              maxLines: _isExpandeddesc
+                                                  ? null
+                                                  : 5,
+                                              overflow: _isExpandeddesc
+                                                  ? TextOverflow.visible
+                                                  : TextOverflow.ellipsis,
+                                              textAlign: TextAlign
+                                                  .start, // not justified
                                               style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.orange,
+                                                fontSize: 13.5,
+                                                color: Colors.black87,
+                                                height: 1.4,
                                               ),
                                             ),
-                                          ),
+                                            if (isOverflowing)
+                                              GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _isExpandeddesc =
+                                                        !_isExpandeddesc;
+                                                  });
+                                                },
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 6,
+                                                      ),
+                                                  child: Text(
+                                                    _isExpandeddesc
+                                                        ? "See less"
+                                                        : "See more",
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.orange,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
-                                    ],
-                                  ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
 
@@ -920,57 +1020,85 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                 ],
                               ),
                               SizedBox(height: 7),
-                              Container(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        widget.highlights,
-                                        maxLines: _isExpanded ? null : 2,
-                                        overflow: _isExpanded
-                                            ? TextOverflow.visible
-                                            : TextOverflow.ellipsis,
-                                        textAlign: TextAlign.justify,
-                                        style: const TextStyle(
-                                          fontSize: 13.5,
-                                          color: Colors.black87,
-                                          height: 1.4,
-                                        ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 0,
+                                ), // outer padding
+                                child: Container(
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    color: const Color.fromARGB(
+                                      255,
+                                      255,
+                                      242,
+                                      224,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        spreadRadius: 0.3,
+                                        blurRadius: 6,
+                                        offset: const Offset(2, 3),
                                       ),
+                                    ],
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          widget.highlights,
+                                          maxLines: _isExpanded ? null : 2,
+                                          overflow: _isExpanded
+                                              ? TextOverflow.visible
+                                              : TextOverflow.ellipsis,
+                                          textAlign: TextAlign.start,
+                                          style: const TextStyle(
+                                            fontSize: 13.5,
+                                            color: Colors.black87,
+                                            height: 1.4,
+                                          ),
+                                        ),
 
-                                      // "See more / See less"
-                                      if (widget.highlights.length > 3)
-                                        GestureDetector(
-                                          onTap: () {
-                                            setState(() {
-                                              _isExpanded = !_isExpanded;
-                                            });
-                                          },
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 6,
-                                            ),
-                                            child: Text(
-                                              _isExpanded
-                                                  ? "See less"
-                                                  : "See more",
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.orange,
+                                        // "See more / See less"
+                                        if (widget.highlights
+                                                    .split('\n')
+                                                    .length >
+                                                2 ||
+                                            widget.highlights.length >
+                                                100) // simple check for overflow
+                                          GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _isExpanded = !_isExpanded;
+                                              });
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 6,
+                                              ),
+                                              child: Text(
+                                                _isExpanded
+                                                    ? "See less"
+                                                    : "See more",
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.orange,
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
+                              SizedBox(height: 15),
+
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: List.generate(images.length, (index) {
@@ -981,7 +1109,7 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                     children: [
                                       // Image container
                                       Padding(
-                                        padding: EdgeInsets.symmetric(
+                                        padding: const EdgeInsets.symmetric(
                                           horizontal: 10,
                                         ),
                                         child: Container(
@@ -1007,10 +1135,43 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                             child: SizedBox(
                                               height: 150,
                                               width: double.infinity,
-                                              child: Image.asset(
-                                                item["image"]!,
-                                                fit: BoxFit.cover,
-                                              ),
+                                              child: index == 0
+                                                  ? Image.network(
+                                                      item["image"]!,
+                                                      fit: BoxFit.cover,
+                                                      loadingBuilder:
+                                                          (
+                                                            context,
+                                                            child,
+                                                            loadingProgress,
+                                                          ) {
+                                                            if (loadingProgress ==
+                                                                null)
+                                                              return child;
+                                                            return const Center(
+                                                              child:
+                                                                  CircularProgressIndicator(),
+                                                            );
+                                                          },
+                                                      errorBuilder:
+                                                          (
+                                                            context,
+                                                            error,
+                                                            stackTrace,
+                                                          ) => const Center(
+                                                            child: Icon(
+                                                              Icons
+                                                                  .broken_image,
+                                                              size: 50,
+                                                              color:
+                                                                  Colors.grey,
+                                                            ),
+                                                          ),
+                                                    )
+                                                  : Image.asset(
+                                                      item["image"]!,
+                                                      fit: BoxFit.cover,
+                                                    ),
                                             ),
                                           ),
                                         ),
@@ -1067,6 +1228,7 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                   );
                                 }),
                               ),
+
                               const SizedBox(height: 25),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1193,73 +1355,20 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                 ],
                               ),
 
-                              const LeaveFeedbackSection(),
+                              LeaveFeedbackSection(
+                                accountId: widget.userId,
+                                establishmentId: widget.establishmentId,
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 25),
                         //Reviews Section
-                        Padding(
-                          padding: EdgeInsetsGeometry.only(left: 20),
-                          child: Column(
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Vertical line
-                                  Container(
-                                    width: 4,
-                                    height: 18,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(2),
-                                      color: Color(0xFF64F67A),
-                                    ),
-                                    margin: const EdgeInsets.only(right: 8),
-                                  ),
-
-                                  // Subtitle text
-                                  Text(
-                                    "Travel Reviews",
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF011901),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                        TravelerReviews(
+                          establishmentId: widget.establishmentId,
                         ),
-                        const TravelerReviews(),
 
-                        // Call to Action Button
-                        // Center(
-                        //   child: ElevatedButton(
-                        //     style: ElevatedButton.styleFrom(
-                        //       backgroundColor: const Color(0xFF62ED7A),
-                        //       padding: const EdgeInsets.symmetric(
-                        //         horizontal: 40,
-                        //         vertical: 15,
-                        //       ),
-                        //       shape: RoundedRectangleBorder(
-                        //         borderRadius: BorderRadius.circular(12),
-                        //       ),
-                        //     ),
-                        //     onPressed: () {
-                        //       // TODO: add booking or map link
-                        //     },
-                        //     child: const Text(
-                        //       "Book Now",
-                        //       style: TextStyle(
-                        //         fontSize: 16,
-                        //         fontWeight: FontWeight.bold,
-                        //         color: Color(0xFF011901),
-                        //       ),
-                        //     ),
-                        //   ),
-                        // ),
-                        SizedBox(height: 80),
+                        SizedBox(height: 50),
                       ],
                     ),
                   ),
@@ -1292,11 +1401,7 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
 
                 // Heart button
                 GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      isFavorite = !isFavorite;
-                    });
-                  },
+                  onTap: _toggleFavorite,
                   child: TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0, end: isFavorite ? 15 : 0),
                     duration: const Duration(milliseconds: 500),
@@ -1318,8 +1423,7 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                               ? [
                                   Shadow(
                                     color: Colors.red.withOpacity(0.8),
-                                    blurRadius:
-                                        glow, // animate blur radius for glow
+                                    blurRadius: glow,
                                   ),
                                 ]
                               : [],

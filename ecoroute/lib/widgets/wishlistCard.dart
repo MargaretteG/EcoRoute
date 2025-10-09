@@ -1,14 +1,18 @@
+import 'package:ecoroute/widgets/popup.dart';
 import 'package:flutter/material.dart';
 
 class WishlistSpotCard extends StatefulWidget {
   final String imagePath;
   final String name;
   final String location;
-  final int starRating;
+  final double starRating;
   final int ecoRating;
   final String? category;
   final String type;
   final VoidCallback? onPin;
+
+  // ✅ New callback
+  final Future<void> Function()? onRemoveFavorite;
 
   const WishlistSpotCard({
     super.key,
@@ -20,6 +24,7 @@ class WishlistSpotCard extends StatefulWidget {
     this.category,
     this.type = "main",
     this.onPin,
+    this.onRemoveFavorite,
   });
 
   @override
@@ -66,8 +71,6 @@ class _WishlistSpotCardState extends State<WishlistSpotCard> {
         ],
       ),
       child: Container(
-        // margin: const EdgeInsets.symmetric(vertical: 7, horizontal: 12),
-        // padding: const EdgeInsets.all(0),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: _getEcoColor(widget.ecoRating), width: 2),
@@ -81,11 +84,34 @@ class _WishlistSpotCardState extends State<WishlistSpotCard> {
               borderRadius: const BorderRadius.horizontal(
                 left: Radius.circular(8),
               ),
-              child: Image.asset(
+              child: Image.network(
                 widget.imagePath,
                 width: screenWidth * 0.32,
                 height: screenWidth * 0.25,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return SizedBox(
+                    width: screenWidth * 0.32,
+                    height: screenWidth * 0.25,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Image.asset(
+                    'images/image_load.png',
+                    width: screenWidth * 0.32,
+                    height: screenWidth * 0.25,
+                    fit: BoxFit.cover,
+                  );
+                },
               ),
             ),
 
@@ -117,18 +143,43 @@ class _WishlistSpotCardState extends State<WishlistSpotCard> {
                         ),
 
                         GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              if (widget.type == "main") {
-                                isFavorite = !isFavorite;
-                              } else {
-                                isPinned = !isPinned;
-                                if (isPinned && widget.onPin != null) {
-                                  widget.onPin!();
+                          onTap: () async {
+                            if (widget.type == "main" && isFavorite) {
+                              // ✅ Show remove favorite popup
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => PopUp(
+                                  title: "Remove from Wishlist",
+                                  headerIcon: Icons.warning_amber_rounded,
+                                  description:
+                                      "Do you want to remove this tourist spot from your favorites?",
+                                  confirmText: "Remove",
+                                  hasTextField: false,
+                                  onConfirm: () {
+                                    Navigator.pop(context, true);
+                                  },
+                                ),
+                              );
+
+                              if (confirm == true &&
+                                  widget.onRemoveFavorite != null) {
+                                await widget.onRemoveFavorite!();
+                                if (mounted) {
+                                  setState(() => isFavorite = false);
                                 }
                               }
-                            });
+                            } else if (widget.type == "main") {
+                              setState(() {
+                                isFavorite = !isFavorite;
+                              });
+                            } else {
+                              isPinned = !isPinned;
+                              if (isPinned && widget.onPin != null) {
+                                widget.onPin!();
+                              }
+                            }
                           },
+
                           child: TweenAnimationBuilder<double>(
                             tween: Tween<double>(
                               begin: 0,
@@ -201,16 +252,28 @@ class _WishlistSpotCardState extends State<WishlistSpotCard> {
                     Row(
                       children: [
                         Row(
-                          children: List.generate(
-                            5,
-                            (index) => Icon(
-                              Icons.star,
-                              size: 11,
-                              color: index < widget.starRating
-                                  ? Colors.amber
-                                  : Colors.grey,
-                            ),
-                          ),
+                          children: List.generate(5, (index) {
+                            if (index < widget.starRating.floor()) {
+                              return const Icon(
+                                Icons.star,
+                                size: 14,
+                                color: Colors.amber,
+                              );
+                            } else if (index < widget.starRating &&
+                                widget.starRating % 1 != 0) {
+                              return const Icon(
+                                Icons.star_half,
+                                size: 14,
+                                color: Colors.amber,
+                              );
+                            } else {
+                              return const Icon(
+                                Icons.star,
+                                size: 14,
+                                color: Colors.grey,
+                              );
+                            }
+                          }),
                         ),
                         const SizedBox(width: 6),
                         if (widget.ecoRating > 0)

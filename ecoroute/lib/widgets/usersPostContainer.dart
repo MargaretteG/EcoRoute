@@ -1,21 +1,34 @@
+import 'package:ecoroute/api_service.dart';
+import 'package:ecoroute/widgets/commentPopup.dart';
+import 'package:ecoroute/widgets/imageLoader.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:ecoroute/widgets/imageLoader.dart';
+import 'package:intl/intl.dart';
 
 class CommunityPost extends StatefulWidget {
-  final String profilePicUrl; // from DB
-  final String username; // from DB
-  final String date; // from DB
-  final String caption; // from DB
-  final List<String> images; // multiple image URLs from DB
-  final bool isFollowing; // dynamic follow state
+  final int communityPostId;
+  final int userId;
+  final String profilePicUrl;
+  final String username;
+  final String date;
+  final String caption;
+  final List<String> images;
+  final bool isFollowing;
+  final int? likesCount;
 
   const CommunityPost({
     Key? key,
+    required this.communityPostId,
+    required this.userId,
     required this.profilePicUrl,
     required this.username,
     required this.date,
     required this.caption,
     required this.images,
     this.isFollowing = false,
+    this.likesCount,
   }) : super(key: key);
 
   @override
@@ -27,18 +40,57 @@ class _CommunityPostState extends State<CommunityPost> {
   bool isFollowing = false;
   int currentPage = 0;
   late PageController _pageController;
-
+  late int likesCount;
   @override
   void initState() {
     super.initState();
     isFollowing = widget.isFollowing;
+    likesCount = widget.likesCount ?? 0;
     _pageController = PageController();
+    _checkIfLiked();
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  String _formatDate(String dateString) {
+    try {
+      final dateTime = DateTime.parse(dateString).toLocal();
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inSeconds < 60) {
+        return '${difference.inSeconds}s ago';
+      } else if (difference.inMinutes < 60) {
+        return '${difference.inMinutes}m ago';
+      } else if (difference.inHours < 10) {
+        return '${difference.inHours}h ago';
+      } else if (difference.inHours < 24) {
+        return DateFormat('hh:mm a').format(dateTime);
+      } else {
+        return DateFormat('MMM d, yyyy hh:mm a').format(dateTime);
+      }
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  //liked posts fetching
+  Future<void> _checkIfLiked() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accountId = prefs.getInt('accountId') ?? 0;
+
+    try {
+      final likedPosts = await fetchUserLikedPosts(accountId);
+      setState(() {
+        isLiked = likedPosts.contains(widget.communityPostId);
+      });
+    } catch (e) {
+      debugPrint("Failed to fetch liked posts: $e");
+    }
   }
 
   @override
@@ -69,14 +121,11 @@ class _CommunityPostState extends State<CommunityPost> {
                 ),
                 child: Row(
                   children: [
-                    // Profile Picture
                     CircleAvatar(
                       radius: 20,
                       backgroundImage: NetworkImage(widget.profilePicUrl),
                     ),
                     const SizedBox(width: 10),
-
-                    // Username + Date
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,7 +139,7 @@ class _CommunityPostState extends State<CommunityPost> {
                             ),
                           ),
                           Text(
-                            widget.date,
+                            _formatDate(widget.date),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
@@ -99,8 +148,6 @@ class _CommunityPostState extends State<CommunityPost> {
                         ],
                       ),
                     ),
-
-                    // Menu (Follow/Unfollow)
                     PopupMenuButton<String>(
                       onSelected: (value) {
                         setState(() {
@@ -151,17 +198,24 @@ class _CommunityPostState extends State<CommunityPost> {
                       },
                       itemBuilder: (_, index) {
                         return ClipRRect(
-                          // borderRadius: BorderRadius.circular(10),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(12),
+                          ),
                           child: Image.network(
                             widget.images[index],
                             fit: BoxFit.cover,
                             width: double.infinity,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const FlickerPlaceholder(); // ✅ works now
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const FlickerPlaceholder(); // ✅ works here too
+                            },
                           ),
                         );
                       },
                     ),
-
-                    // LEFT ARROW
                     if (currentPage > 0)
                       Positioned(
                         left: 10,
@@ -180,8 +234,6 @@ class _CommunityPostState extends State<CommunityPost> {
                           },
                         ),
                       ),
-
-                    // RIGHT ARROW
                     if (currentPage < widget.images.length - 1)
                       Positioned(
                         right: 10,
@@ -200,8 +252,6 @@ class _CommunityPostState extends State<CommunityPost> {
                           },
                         ),
                       ),
-
-                    // PAGE INDICATORS
                     if (widget.images.length > 1)
                       Positioned(
                         bottom: 8,
@@ -240,34 +290,100 @@ class _CommunityPostState extends State<CommunityPost> {
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () {
+                      onTap: () async {
+                        HapticFeedback.lightImpact();
                         setState(() {
                           isLiked = !isLiked;
+                          likesCount += isLiked ? 1 : -1;
+                          if (likesCount < 0) likesCount = 0;
                         });
+
+                        try {
+                          final prefs = await SharedPreferences.getInstance();
+                          final accountId = prefs.getInt('accountId') ?? 0;
+
+                          final status = await togglePostLike(
+                            userId: accountId,
+                            communityPostId: widget.communityPostId,
+                          );
+
+                          if (status == 'liked' && !isLiked) {
+                            setState(() => likesCount++);
+                          } else if (status == 'unliked' && isLiked) {
+                            setState(() => likesCount--);
+                          }
+                        } catch (e) {
+                          setState(() {
+                            // Revert on error
+                            isLiked = !isLiked;
+                            likesCount += isLiked ? 1 : -1;
+                            if (likesCount < 0) likesCount = 0;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to like post: $e')),
+                          );
+                        }
                       },
                       child: Row(
                         children: [
-                          Icon(
-                            isLiked ? Icons.favorite : Icons.favorite_border,
-                            color: isLiked ? Colors.red : Colors.grey,
-                            size: 19,
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder: (child, anim) =>
+                                ScaleTransition(scale: anim, child: child),
+                            child: Icon(
+                              isLiked ? Icons.favorite : Icons.favorite_border,
+                              key: ValueKey<bool>(isLiked),
+                              color: isLiked ? Colors.red : Colors.grey,
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 5),
-                          const Text("Like", style: TextStyle(fontSize: 13)),
+                          Text(
+                            "Like • $likesCount",
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ],
                       ),
                     ),
+
                     const SizedBox(width: 20),
-                    Row(
-                      children: const [
-                        Icon(
-                          Icons.mode_comment_outlined,
-                          size: 19,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(width: 5),
-                        Text("Comment", style: TextStyle(fontSize: 13)),
-                      ],
+                    GestureDetector(
+                      onTap: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        final accountId = prefs.getInt('accountId') ?? 0;
+                        final profilePic =
+                            prefs.getString('profilePicUrl') ?? '';
+
+                        showDialog(
+                          context: context,
+                          builder: (_) => CommentPopup(
+                            communityPostId: widget.communityPostId,
+                            comments: [],
+                            currentUserProfilePic: profilePic.isNotEmpty
+                                ? "https://ecoroute-taal.online/uploads/profile_pics/$profilePic"
+                                : null,
+                            onSendComment: (commentText) async {
+                              await addCommunityPostComment(
+                                accountId: accountId,
+                                communityPostId: widget.communityPostId,
+                                commentContent: commentText,
+                              );
+                              setState(() {}); // reload to show new comment
+                            },
+                          ),
+                        );
+                      },
+                      child: Row(
+                        children: const [
+                          Icon(
+                            Icons.mode_comment_outlined,
+                            size: 19,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(width: 5),
+                          Text("Comment", style: TextStyle(fontSize: 13)),
+                        ],
+                      ),
                     ),
                   ],
                 ),

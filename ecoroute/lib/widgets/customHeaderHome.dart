@@ -38,12 +38,12 @@ class SearchHeader extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Image.asset(logoPath, height: 45),
+            Image.asset(logoPath, height: 40),
             const SizedBox(width: 10),
             if (showSearch)
               Expanded(
                 child: SizedBox(
-                  height: 55,
+                  height: 45,
                   child: TextField(
                     style: TextStyle(
                       color:
@@ -170,77 +170,77 @@ class SearchHeader extends StatelessWidget {
 }
 
 // Scroll-to-Top
-class ScrollToTopWrapper extends StatefulWidget {
-  final Widget child;
-  final ScrollController? controller;
+// class ScrollToTopWrapper extends StatefulWidget {
+//   final Widget child;
+//   final ScrollController? controller;
 
-  const ScrollToTopWrapper({super.key, required this.child, this.controller});
+//   const ScrollToTopWrapper({super.key, required this.child, this.controller});
 
-  @override
-  State<ScrollToTopWrapper> createState() => _ScrollToTopWrapperState();
-}
+//   @override
+//   State<ScrollToTopWrapper> createState() => _ScrollToTopWrapperState();
+// }
 
-class _ScrollToTopWrapperState extends State<ScrollToTopWrapper> {
-  late ScrollController _scrollController;
-  bool _showButton = false;
+// class _ScrollToTopWrapperState extends State<ScrollToTopWrapper> {
+//   late ScrollController _scrollController;
+//   bool _showButton = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = widget.controller ?? ScrollController();
-    _scrollController.addListener(_scrollListener);
-  }
+//   @override
+//   void initState() {
+//     super.initState();
+//     _scrollController = widget.controller ?? ScrollController();
+//     _scrollController.addListener(_scrollListener);
+//   }
 
-  void _scrollListener() {
-    if (_scrollController.offset > 200 && !_showButton) {
-      setState(() => _showButton = true);
-    } else if (_scrollController.offset <= 200 && _showButton) {
-      setState(() => _showButton = false);
-    }
-  }
+//   void _scrollListener() {
+//     if (_scrollController.offset > 200 && !_showButton) {
+//       setState(() => _showButton = true);
+//     } else if (_scrollController.offset <= 200 && _showButton) {
+//       setState(() => _showButton = false);
+//     }
+//   }
 
-  @override
-  void dispose() {
-    _scrollController.removeListener(_scrollListener);
-    if (widget.controller == null) {
-      _scrollController.dispose();
-    }
-    super.dispose();
-  }
+//   @override
+//   void dispose() {
+//     _scrollController.removeListener(_scrollListener);
+//     if (widget.controller == null) {
+//       _scrollController.dispose();
+//     }
+//     super.dispose();
+//   }
 
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOut,
-    );
-  }
+//   void _scrollToTop() {
+//     _scrollController.animateTo(
+//       0,
+//       duration: const Duration(milliseconds: 400),
+//       curve: Curves.easeOut,
+//     );
+//   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // ✅ Force the child to use this scrollController if it’s scrollable
-        PrimaryScrollController(
-          controller: _scrollController,
-          child: widget.child,
-        ),
-        if (_showButton)
-          Positioned(
-            bottom: 180,
-            right: 20,
-            child: FloatingActionButton(
-              mini: true,
-              backgroundColor: Colors.blueAccent,
-              onPressed: _scrollToTop,
-              child: const Icon(
-                Icons.arrow_upward,
-                size: 20,
-                color: Colors.white,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Stack(
+//       children: [
+//         // ✅ Force the child to use this scrollController if it’s scrollable
+//         PrimaryScrollController(
+//           controller: _scrollController,
+//           child: widget.child,
+//         ),
+//         if (_showButton)
+//           Positioned(
+//             bottom: 180,
+//             right: 20,
+//             child: FloatingActionButton(
+//               mini: true,
+//               backgroundColor: Colors.blueAccent,
+//               onPressed: _scrollToTop,
+//               child: const Icon(
+//                 Icons.arrow_upward,
+//                 size: 20,
+//                 color: Colors.white,
+//               ),
+//             ),
+//           ),
+//       ],
+//     );
+//   }
+// }

@@ -173,13 +173,13 @@ class _FloatingBtnState extends State<FloatingBtn>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-
+ 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 5),
+      duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
 
     _animation = Tween<double>(

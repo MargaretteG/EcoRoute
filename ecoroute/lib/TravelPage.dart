@@ -31,9 +31,11 @@ class _TravelPageState extends State<TravelPage> {
     if (accountId == null) return;
 
     final userData = await _api.fetchProfile(accountId: accountId);
+
+    if (!mounted) return;
+
     setState(() {
       _user = userData;
-      // _loading = false;
     });
   }
 
@@ -70,11 +72,15 @@ class _TravelPageState extends State<TravelPage> {
   Widget _buildCategoryContent() {
     switch (selectedCategoryIndex) {
       case 0:
-        return const TravelPlans();
+        return TravelPlans(
+          onDataChanged: () {
+            setState(() {}); // triggers rebuild after adding/deleting a travel
+          },
+        );
       case 1:
-        return const WishlistsContent();
+        return WishlistsContent();
       case 2:
-        return const TravelGroups();
+        return TravelGroups();
       default:
         return const SizedBox();
     }

@@ -21,7 +21,7 @@ class _CommunityPageState extends State<CommunityPage> {
   void initState() {
     super.initState();
     _loadUser();
-  } 
+  }
 
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
@@ -89,7 +89,7 @@ class _CommunityPageState extends State<CommunityPage> {
                     top: 0,
                     left: 0,
                     right: 0,
-                    bottom: 20,
+                    bottom: 0,
                   ),
                   child: Align(
                     alignment: Alignment.centerLeft,

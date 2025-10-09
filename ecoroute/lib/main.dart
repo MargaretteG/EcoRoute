@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:ecoroute/widgets/custom_button.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 void main() {
   runApp(const MyApp());
@@ -94,7 +95,7 @@ class _WelcomePageState extends State<WelcomePage> {
                         offset: Offset(
                           20,
                           30,
-                        ), // 👈 X = left/right, Y = up/down
+                        ),
                         child: Transform.scale(
                           scale: 1.3, // zoom in
                           child: Image.asset(

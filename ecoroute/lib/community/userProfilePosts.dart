@@ -1,3 +1,4 @@
+import 'package:ecoroute/widgets/imageLoader.dart';
 import 'package:ecoroute/widgets/usersPostContainer.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +22,8 @@ class UserProfilePosts extends StatefulWidget {
 class UserProfilePostsState extends State<UserProfilePosts> {
   List<Map<String, dynamic>> userPosts = [];
   bool isLoading = true;
-  bool _hasLoadedOnce = false; // Prevent infinite reload
+  bool _hasLoadedOnce = false;
+  int? loggedInUserId; // ✅ store logged-in user ID
 
   @override
   void initState() {
@@ -29,7 +31,6 @@ class UserProfilePostsState extends State<UserProfilePosts> {
     _loadOnce();
   }
 
-  // Ensures we fetch posts only once per widget lifecycle
   void _loadOnce() {
     if (!_hasLoadedOnce) {
       _hasLoadedOnce = true;
@@ -45,6 +46,7 @@ class UserProfilePostsState extends State<UserProfilePosts> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final accountId = prefs.getInt('accountId') ?? 0;
+
       if (accountId == 0) {
         setState(() {
           isLoading = false;
@@ -52,12 +54,13 @@ class UserProfilePostsState extends State<UserProfilePosts> {
         return;
       }
 
+      // ✅ Store it for later use in building posts
+      loggedInUserId = accountId;
+
       final posts = await ApiService().getUserPosts(accountId: accountId);
 
-      // Only update if the widget is still mounted
       if (!mounted) return;
 
-      // Ensure posts are unique by communityPost_id
       final uniquePosts = {
         for (var post in posts) post['communityPost_id']: post,
       }.values.toList();
@@ -76,23 +79,33 @@ class UserProfilePostsState extends State<UserProfilePosts> {
 
   @override
   Widget build(BuildContext context) {
-    // if (isLoading) {
-    //   return const Center(child: CircularProgressIndicator());
-    // }
     if (isLoading) {
       return Container(
         width: double.infinity,
         margin: const EdgeInsets.symmetric(horizontal: 7),
         padding: const EdgeInsets.symmetric(vertical: 10),
-        height: 200,
+        height: 500,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
         ),
-        child: Center(child: CircularProgressIndicator()),
+        child: Column(
+          children: [
+            // const SizedBox(height: 30),
+            const FlickerImageLoader(imagePath: "images/17.png"),
+            const SizedBox(height: 20),
+            const Text(
+              "Loading posts...",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black54,
+              ),
+            ),
+          ],
+        ),
       );
     }
-
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 7),
@@ -126,19 +139,22 @@ class UserProfilePostsState extends State<UserProfilePosts> {
                 Column(
                   children: userPosts.map((post) {
                     return CommunityPost(
-                      key: ValueKey(
-                        post['communityPost_id'],
-                      ), // optional but safer
+                      key: ValueKey(post['communityPost_id']),
                       profilePicUrl: widget.profilePicUrl,
                       username: widget.username,
                       date: post['dateCreated'] ?? "",
                       caption: post['postCaption'] ?? "",
                       images: List<String>.from(post['postImages'] ?? []),
                       isFollowing: false,
+                      communityPostId: int.parse(
+                        post['communityPost_id'].toString(),
+                      ),
+                      likesCount: post['likesCount'],
+                      userId: loggedInUserId ?? 0,
                     );
                   }).toList(),
                 ),
-                SizedBox(height: 80),
+                const SizedBox(height: 80),
               ],
             ),
     );

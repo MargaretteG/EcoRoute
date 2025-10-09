@@ -1,7 +1,94 @@
+import 'package:ecoroute/widgets/bottomPopup.dart';
+import 'package:ecoroute/widgets/popup.dart';
 import 'package:flutter/material.dart';
+import 'package:ecoroute/api_service.dart';
 
-class LeaveFeedbackSection extends StatelessWidget {
-  const LeaveFeedbackSection({super.key});
+class LeaveFeedbackSection extends StatefulWidget {
+  final int accountId; // logged-in user
+  final int establishmentId;
+
+  const LeaveFeedbackSection({
+    super.key,
+    required this.accountId,
+    required this.establishmentId,
+  });
+
+  @override
+  State<LeaveFeedbackSection> createState() => _LeaveFeedbackSectionState();
+}
+
+class _LeaveFeedbackSectionState extends State<LeaveFeedbackSection> {
+  final TextEditingController _feedbackController = TextEditingController();
+  double _starRating = 0.0;
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _feedbackController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitFeedback() async {
+    if (_starRating == 0 || _feedbackController.text.isEmpty) {
+      showCustomSnackBar(
+        context: context,
+        icon: Icons.error_outline,
+        message: "Please add a rating and feedback.",
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    // Show pop-up for confirmation
+    showDialog(
+      context: context,
+      builder: (_) => PopUp(
+        title: "Submit Feedback",
+        headerIcon: Icons.rate_review_rounded,
+        description: "Are you sure you want to submit this review?",
+        confirmText: "Submit",
+        hasTextField: false,
+        onConfirm: () async {
+          try {
+            final result = await addTravelReview(
+              accountId: widget.accountId,
+              establishmentId: widget.establishmentId,
+              ratingStar: _starRating,
+              ratingFeedback: _feedbackController.text,
+            );
+
+            Navigator.pop(context); // Close pop-up
+
+            if (result['status'] == 'success') {
+              showCustomSnackBar(
+                context: context,
+                icon: Icons.check_circle_outline,
+                message: "Feedback submitted successfully!",
+              );
+
+              _feedbackController.clear();
+              setState(() => _starRating = 0.0);
+            } else {
+              showCustomSnackBar(
+                context: context,
+                icon: Icons.error_outline,
+                message: result['message'] ?? "Failed to submit feedback",
+              );
+            }
+          } catch (e) {
+            showCustomSnackBar(
+              context: context,
+              icon: Icons.error_outline,
+              message: "Error: $e",
+            );
+          } finally {
+            setState(() => _isSubmitting = false);
+          }
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,19 +115,33 @@ class LeaveFeedbackSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // TextField
-                const TextField(
+                TextField(
+                  controller: _feedbackController,
                   maxLines: 3,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: 'Write your feedback here...',
                     border: InputBorder.none,
                   ),
                 ),
-
                 const SizedBox(height: 10),
 
-                // Star Rating widget added here
-                const StarRating(),
+                // Star Rating
+                Row(
+                  children: List.generate(5, (index) {
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _starRating = index + 1.0;
+                        });
+                      },
+                      child: Icon(
+                        index < _starRating ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 26,
+                      ),
+                    );
+                  }),
+                ),
 
                 const SizedBox(height: 10),
 
@@ -59,45 +160,7 @@ class LeaveFeedbackSection extends StatelessWidget {
                         vertical: 12,
                       ),
                     ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Row(
-                            children: const [
-                              Icon(
-                                Icons.check_circle_outline,
-                                color: Colors.white,
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Feedback submitted!',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          backgroundColor: const Color(0xFF2E9E3F),
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 3),
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 15,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      );
-                    },
+                    onPressed: _isSubmitting ? null : _submitFeedback,
                     icon: const Icon(Icons.send_rounded, size: 18),
                     label: const Text(
                       'Submit',
@@ -110,53 +173,6 @@ class LeaveFeedbackSection extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-// ⭐ Reusable Star Rating Widget
-class StarRating extends StatefulWidget {
-  const StarRating({super.key});
-
-  @override
-  State<StarRating> createState() => _StarRatingState();
-}
-
-class _StarRatingState extends State<StarRating> {
-  int _rating = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          '$_rating.0',
-          style: const TextStyle(
-            fontSize: 16,
-            color: Color(0xFF4B2F34),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-
-        const SizedBox(width: 8),
-
-        Row(
-          children: List.generate(5, (index) {
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _rating = index + 1;
-                });
-              },
-              child: Icon(
-                index < _rating ? Icons.star : Icons.star_border,
-                color: Colors.amber,
-                size: 26,
-              ),
-            );
-          }),
-        ),
-      ],
     );
   }
 }

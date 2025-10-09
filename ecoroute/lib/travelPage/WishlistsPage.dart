@@ -1,38 +1,80 @@
 import 'package:ecoroute/widgets/emptyPage.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customTravelheader.dart';
-import 'package:ecoroute/widgets/wishlistCard.dart'; // Import the new card widget
+import 'package:ecoroute/widgets/wishlistCard.dart';
+import 'package:ecoroute/api_service.dart'; // ✅ connect API
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class WishlistsContent extends StatelessWidget {
+class WishlistsContent extends StatefulWidget {
   const WishlistsContent({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // For now static sample data; in future replace this with DB data
-    final List<Map<String, dynamic>> travelWishlist = [
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Taal Basilica",
-        "location": "Taal, Philippines",
-        "starRating": 5,
-        "ecoRating": 4,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Taal Basilica",
-        "location": "Taal, Philippines",
-        "starRating": 5,
-        "ecoRating": 5,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Taal Basilica",
-        "location": "Taal, Philippines",
-        "starRating": 5,
-        "ecoRating": 2,
-      },
-    ];
+  State<WishlistsContent> createState() => _WishlistsContentState();
+}
 
+class _WishlistsContentState extends State<WishlistsContent> {
+  List<dynamic> favoriteEstablishments = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchFavoritesData();
+  }
+
+  Future<void> fetchFavoritesData() async {
+    setState(() => isLoading = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // ✅ Use the correct key exactly as in homepage
+      final userId = prefs.getInt('accountId') ?? 0;
+
+      if (userId == 0) {
+        debugPrint("❌ No user logged in");
+        setState(() {
+          favoriteEstablishments = [];
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Fetch all establishments
+      final establishments = await fetchAllEstablishments();
+
+      // Fetch user's favorite IDs
+      final favoriteIds = await fetchUserFavorites(userId);
+
+      // Debug prints
+      debugPrint("✅ User ID: $userId");
+      debugPrint("✅ Fetched favorite IDs: $favoriteIds");
+      debugPrint("✅ Establishments fetched: ${establishments.length}");
+
+      // Filter only favorites
+      final favorites = establishments.where((est) {
+        final estId = int.tryParse(est['establishment_id'].toString()) ?? 0;
+        final isFav = favoriteIds.contains(estId);
+        debugPrint(
+          "Checking ${est['establishment_name']} (ID: $estId) -> Favorite: $isFav",
+        );
+        return isFav;
+      }).toList();
+
+      setState(() {
+        favoriteEstablishments = favorites;
+        isLoading = false;
+      });
+
+      debugPrint("✅ Wishlist fetched: ${favorites.length} items");
+    } catch (e) {
+      debugPrint("❌ Error fetching wishlist: $e");
+      setState(() => isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF011901),
       body: SingleChildScrollView(
@@ -57,7 +99,9 @@ class WishlistsContent extends StatelessWidget {
                         top: Radius.circular(50),
                       ),
                     ),
-                    child: travelWishlist.isEmpty
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : favoriteEstablishments.isEmpty
                         ? Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Column(
@@ -79,15 +123,34 @@ class WishlistsContent extends StatelessWidget {
                               horizontal: 10,
                             ),
                             child: Column(
-                              children: travelWishlist.map((spot) {
+                              children: favoriteEstablishments.map((spot) {
                                 return WishlistSpotCard(
-                                  imagePath: spot["imagePath"],
-                                  name: spot["name"],
-                                  location: spot["location"],
-                                  starRating: spot["starRating"],
-                                  ecoRating: spot["ecoRating"],
+                                  imagePath:
+                                      (spot['images'] != null &&
+                                          spot['images'].isNotEmpty)
+                                      ? "https://ecoroute-taal.online/EcoRoute/Includes/Images/tourist-estab/managelisting/${spot['images'][0]['imageUrl']}"
+                                      : 'images/image_load.png',
+                                  name: spot['establishmentName'] ?? '',
+                                  location: spot['address'] ?? '',
+                                  starRating: spot['userRating'] ?? 0.0,
+                                  ecoRating: spot['recognitionRating'] ?? 0,
+                                  category: spot['category'] ?? 'unknown',
+                                  onRemoveFavorite: () async {
+                                    final prefs =
+                                        await SharedPreferences.getInstance();
+                                    final userId =
+                                        prefs.getInt('accountId') ?? 0;
+                                    final estId =
+                                        int.tryParse(
+                                          spot['establishment_id'].toString(),
+                                        ) ??
+                                        0;
 
-                                  category: "unknown",
+                                    if (userId != 0 && estId != 0) {
+                                      await removeUserFavorite(userId, estId);
+                                      await fetchFavoritesData();
+                                    }
+                                  },
                                 );
                               }).toList(),
                             ),

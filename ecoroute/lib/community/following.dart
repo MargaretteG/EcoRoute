@@ -7,7 +7,7 @@ class FollowingPage extends StatelessWidget {
   static const List<String> followingPosts = const [];
   static bool get hasPosts => followingPosts.isNotEmpty;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) { 
     if (followingPosts.isEmpty) { 
       return Column(
         children: [

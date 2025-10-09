@@ -1,3 +1,5 @@
+import 'package:ecoroute/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ecoroute/widgets/emptyPage.dart';
 import 'package:ecoroute/widgets/wishlistCard.dart';
 import 'package:flutter/material.dart';
@@ -135,50 +137,33 @@ class BottomPopup extends StatelessWidget {
 }
 
 // Bottom Pop Up for Add Travelncontaining Wishlist
-
 class WishlistsBottomPopup {
-  static void show(
+  static Future<void> show(
     BuildContext context,
     Function(String pinnedTitle) onPinned,
-  ) {
-    // For now static sample data; in future replace this with DB data
-    final List<Map<String, dynamic>> travelWishlist = [
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Taal Basilica",
-        "location": "Taal, Philippines",
-        "starRating": 5,
-        "ecoRating": 4,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Chocolate Hills",
-        "location": "Bohol, Philippines",
-        "starRating": 5,
-        "ecoRating": 5,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Mayon Volcano",
-        "location": "Albay, Philippines",
-        "starRating": 5,
-        "ecoRating": 2,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Mayon Volcano",
-        "location": "Albay, Philippines",
-        "starRating": 5,
-        "ecoRating": 1,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Mayon Volcano",
-        "location": "Albay, Philippines",
-        "starRating": 5,
-        "ecoRating": 3,
-      },
-    ];
+  ) async {
+    // Fetch favorites dynamically
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('accountId') ?? 0;
+
+    if (userId == 0) {
+      // If no user, show empty state
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _emptyPopup(),
+      );
+      return;
+    }
+
+    // Fetch establishments & user favorites
+    final establishments = await fetchAllEstablishments();
+    final favoriteIds = await fetchUserFavorites(userId);
+
+    final favorites = establishments.where((est) {
+      final estId = int.tryParse(est['establishment_id'].toString()) ?? 0;
+      return favoriteIds.contains(estId);
+    }).toList();
 
     showModalBottomSheet(
       context: context,
@@ -210,6 +195,7 @@ class WishlistsBottomPopup {
                     ),
                   ),
 
+                  // Header
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16.0,
@@ -235,7 +221,7 @@ class WishlistsBottomPopup {
                     ),
                   ),
 
-                  // Orange indicator line
+                  // Orange indicator
                   SizedBox(
                     height: 4,
                     child: Stack(
@@ -245,7 +231,7 @@ class WishlistsBottomPopup {
                         Container(
                           height: 3,
                           width: 120,
-                          color: const Color(0xFFFF9616),
+                          color: Color(0xFFFF9616),
                         ),
                       ],
                     ),
@@ -253,39 +239,34 @@ class WishlistsBottomPopup {
 
                   const SizedBox(height: 8),
 
-                  // IMPORTANT: Expanded
+                  // Favorites List
                   Expanded(
-                    child: travelWishlist.isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: EmptyState(
-                              imagePath: 'images/16.png',
-                              title: "No Wishlist Yet",
-                              description:
-                                  "Looks like your travel wishlist is empty. Start adding destinations you’d love to visit!",
-                              centerVertically: false,
-                            ),
-                          )
+                    child: favorites.isEmpty
+                        ? _emptyPopup()
                         : ListView.builder(
-                            controller: controller, // use the sheet controller
+                            controller: controller,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 5,
                               vertical: 8,
                             ),
-                            itemCount: travelWishlist.length,
+                            itemCount: favorites.length,
                             itemBuilder: (context, index) {
-                              final spot = travelWishlist[index];
+                              final spot = favorites[index];
                               return WishlistSpotCard(
-                                imagePath: spot["imagePath"],
-                                name: spot["name"],
-                                location: spot["location"],
-                                starRating: spot["starRating"],
-                                ecoRating: spot["ecoRating"],
-                                category: "unknown",
+                                imagePath:
+                                    (spot['images'] != null &&
+                                        spot['images'].isNotEmpty)
+                                    ? "https://ecoroute-taal.online/EcoRoute/Includes/Images/tourist-estab/managelisting/${spot['images'][0]['imageUrl']}"
+                                    : 'images/image_load.png',
+                                name: spot['establishmentName'] ?? '',
+                                location: spot['address'] ?? '',
+                                starRating: spot['userRating'] ?? 0.0,
+                                ecoRating: spot['recognitionRating'] ?? 0,
+                                category: spot['category'] ?? 'unknown',
                                 type: "addTravel",
                                 onPin: () {
                                   Navigator.pop(context);
-                                  onPinned(spot["name"]);
+                                  onPinned(spot['establishmentName'] ?? '');
                                 },
                               );
                             },
@@ -299,48 +280,62 @@ class WishlistsBottomPopup {
       },
     );
   }
+
+  static Widget _emptyPopup() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: EmptyState(
+        imagePath: 'images/16.png',
+        title: "No Wishlist Yet",
+        description:
+            "Looks like your travel wishlist is empty. Start adding destinations you’d love to visit!",
+        centerVertically: false,
+      ),
+    );
+  }
 }
 
 //Recommendations Bottom Pop Up
 class RecommendationBottomPopup {
-  static void show(  BuildContext context,
-    Function(String pinnedTitle) onPinned,) {
-
-        // For now static sample data; in future replace this with DB data
+  static void show(
+    BuildContext context,
+    Function(String pinnedTitle) onPinned,
+  ) {
+    // For now static sample data; in future replace this with DB data
     final List<Map<String, dynamic>> travelWishlist = [
       {
         "imagePath": "images/home-photo1-1.jpg",
         "name": "Taal Basilica",
         "location": "Taal, Philippines",
-        "starRating": 5,
+        "starRating": 5.0,
         "ecoRating": 4,
       },
       {
         "imagePath": "images/home-photo1-1.jpg",
         "name": "Chocolate Hills",
         "location": "Bohol, Philippines",
-        "starRating": 5,
+        "starRating": 5.0,
         "ecoRating": 5,
       },
       {
         "imagePath": "images/home-photo1-1.jpg",
         "name": "Mayon Volcano",
         "location": "Albay, Philippines",
-        "starRating": 5,
+        "starRating": 5.0,
         "ecoRating": 2,
       },
       {
         "imagePath": "images/home-photo1-1.jpg",
         "name": "Mayon Volcano",
         "location": "Albay, Philippines",
-        "starRating": 5,
+        "starRating": 2.0,
         "ecoRating": 1,
       },
       {
         "imagePath": "images/home-photo1-1.jpg",
         "name": "Mayon Volcano",
         "location": "Albay, Philippines",
-        "starRating": 5,
+        "starRating": 5.0,
         "ecoRating": 3,
       },
     ];
@@ -390,7 +385,7 @@ class RecommendationBottomPopup {
                       child: TabBarView(
                         children: [
                           // Nearby recommendations
-                       ListView.builder(
+                          ListView.builder(
                             controller: controller, // use the sheet controller
                             padding: const EdgeInsets.symmetric(
                               horizontal: 5,
@@ -416,23 +411,47 @@ class RecommendationBottomPopup {
                           ),
 
                           // Popular / Eco Rating recommendations
-                          ListView(
-                            controller: controller,
-                            padding: const EdgeInsets.all(16),
-                            children: [
-                              _buildRecommendationCard(
-                                "Banaue Rice Terraces",
-                                "Ifugao, Philippines",
-                                5,
-                                5,
-                              ),
-                              _buildRecommendationCard(
-                                "Palawan Underground River",
-                                "Puerto Princesa, Philippines",
-                                5,
-                                5,
-                              ),
-                            ],
+                          // ListView(
+                          //   controller: controller,
+                          //   padding: const EdgeInsets.all(16),
+                          //   children: [
+                          //     _buildRecommendationCard(
+                          //       "Banaue Rice Terraces",
+                          //       "Ifugao, Philippines",
+                          //       5,
+                          //       5,
+                          //     ),
+                          //     _buildRecommendationCard(
+                          //       "Palawan Underground River",
+                          //       "Puerto Princesa, Philippines",
+                          //       5,
+                          //       5,
+                          //     ),
+                          //   ],
+                          // ),
+                          ListView.builder(
+                            controller: controller, // use the sheet controller
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 8,
+                            ),
+                            itemCount: travelWishlist.length,
+                            itemBuilder: (context, index) {
+                              final spot = travelWishlist[index];
+                              return WishlistSpotCard(
+                                imagePath: spot["imagePath"],
+                                name: spot["name"],
+                                location: spot["location"],
+                                starRating: spot["starRating"],
+                                ecoRating: spot["ecoRating"],
+                                category: "unknown",
+                                type: "addTravel",
+                                onPin: () {
+                                  Navigator.pop(context);
+                                  onPinned(spot["name"]);
+                                },
+                              );
+                            },
                           ),
                         ],
                       ),

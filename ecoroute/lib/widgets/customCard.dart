@@ -1,14 +1,26 @@
+import 'package:ecoroute/api_service.dart';
 import 'package:ecoroute/widgets/destinationInfoPage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class TouristSpotCard extends StatefulWidget {
   final String imagePath;
   final String name;
   final String location;
-  final int starRating;
+  final double starRating;
   final int ecoRating;
   final IconData badgeIcon;
   final String category;
+  final int establishmentId;
+  final int userId;
+  final String description;
+  final String highlightDescription;
+  final String phoneNumber;
+  final String emailAdd;
+  final bool isFavorite;
 
   const TouristSpotCard({
     super.key,
@@ -19,6 +31,13 @@ class TouristSpotCard extends StatefulWidget {
     required this.ecoRating,
     required this.badgeIcon,
     required this.category,
+    required this.establishmentId,
+    required this.userId,
+    required this.description,
+    required this.highlightDescription,
+    required this.phoneNumber,
+    required this.emailAdd,
+    required this.isFavorite,
   });
 
   @override
@@ -27,6 +46,42 @@ class TouristSpotCard extends StatefulWidget {
 
 class _TouristSpotCardState extends State<TouristSpotCard> {
   bool isFavorite = false;
+
+  @override
+  void initState() {
+    super.initState();
+    isFavorite = widget.isFavorite;
+  }
+
+  @override
+  void didUpdateWidget(covariant TouristSpotCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isFavorite != widget.isFavorite) {
+      setState(() {
+        isFavorite = widget.isFavorite;
+      });
+    }
+  }
+
+  Future<void> _handleFavoriteTap() async {
+    setState(() {
+      isFavorite = !isFavorite;
+    });
+
+    try {
+      await addOrUpdateFavorite(
+        userId: widget.userId,
+        establishment_id: widget.establishmentId,
+        favoriteStatus: isFavorite ? 1 : 0,
+      );
+    } catch (e) {
+      // revert UI if failed
+      setState(() {
+        isFavorite = !isFavorite;
+      });
+      debugPrint("Failed to update favorite: $e");
+    }
+  }
 
   Color _getEcoColor(int ecoRating) {
     switch (ecoRating) {
@@ -77,17 +132,18 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
               imagePath: widget.imagePath,
               name: widget.name,
               location: widget.location,
-              description:
-                  "This is a sample description about the tourist spot.Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore ",
-              highlights:
-                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ",
+              description: widget.description,
+              highlights: widget.highlightDescription,
               openingHoursWeekdays: "9:00 AM - 5:00 PM",
               openingHoursWeekends: "8:00 AM - 6:00 PM",
-              contact: "+63 912 345 6789",
-              email: "tourist@gmail.com",
+              contact: widget.phoneNumber,
+              email: widget.emailAdd,
               ecoRating: widget.ecoRating,
               starRating: widget.starRating,
               category: widget.category,
+              establishmentId: widget.establishmentId,
+              userId: widget.userId,
+              isFavorite: widget.isFavorite,
             ),
           ),
         );
@@ -114,7 +170,7 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
                 children: [
                   AspectRatio(
                     aspectRatio: 20 / 9,
-                    child: Image.asset(
+                    child: Image.network(
                       widget.imagePath,
                       fit: BoxFit.cover,
                       width: double.infinity,
@@ -181,24 +237,37 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
                           Row(
                             children: [
                               Row(
-                                children: List.generate(
-                                  5,
-                                  (index) => Icon(
-                                    Icons.star,
-                                    size: 14,
-                                    color: index < widget.starRating
-                                        ? Colors.amber
-                                        : Colors.grey,
-                                  ),
-                                ),
+                                children: List.generate(5, (index) {
+                                  if (index < widget.starRating.floor()) {
+                                    return const Icon(
+                                      Icons.star,
+                                      size: 14,
+                                      color: Colors.amber,
+                                    );
+                                  } else if (index < widget.starRating &&
+                                      widget.starRating % 1 != 0) {
+                                    return const Icon(
+                                      Icons.star_half,
+                                      size: 14,
+                                      color: Colors.amber,
+                                    );
+                                  } else {
+                                    return const Icon(
+                                      Icons.star,
+                                      size: 14,
+                                      color: Colors.grey,
+                                    );
+                                  }
+                                }),
                               ),
+
                               const SizedBox(width: 10),
                               if (widget.ecoRating > 0)
                                 Row(
                                   children: List.generate(
                                     5,
                                     (index) => Icon(
-                                      Icons.eco, 
+                                      Icons.eco,
                                       size: 14,
                                       color: index < widget.ecoRating
                                           ? const Color.fromARGB(
@@ -236,15 +305,15 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
                     ),
                   ),
                 ),
-              // Heart Icon 
+              // Heart Icon
               Positioned(
                 top: 10,
                 right: 10,
                 child: GestureDetector(
                   onTap: () {
-                    setState(() {
-                      isFavorite = !isFavorite;
-                    });
+                    HapticFeedback.lightImpact();
+
+                    _handleFavoriteTap();
                   },
                   child: TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0, end: isFavorite ? 15 : 0),
@@ -255,15 +324,15 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
                         radius: 20,
                         backgroundColor: const Color.fromARGB(
                           145,
-                          152,
-                          152,
-                          152,
+                          230,
+                          230,
+                          230,
                         ),
                         child: Icon(
                           isFavorite ? Icons.favorite : Icons.favorite_border,
                           color: isFavorite ? Colors.red : Colors.white,
                           size: 20,
-                          shadows: isFavorite 
+                          shadows: isFavorite
                               ? [
                                   Shadow(
                                     color: Colors.red.withOpacity(0.8),

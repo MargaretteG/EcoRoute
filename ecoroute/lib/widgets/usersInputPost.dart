@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class PostInputWidget extends StatefulWidget {
   final String? profilePicUrl;
-  final String? userName;
+  final String? userName; 
   final VoidCallback? onPostSubmitted;
 
   const PostInputWidget({
@@ -61,7 +61,7 @@ class _PostInputWidgetState extends State<PostInputWidget> {
               fontWeight: FontWeight.bold,
               color: Color(0xFF011901),
             ),
-          ),
+          ), 
           const SizedBox(height: 10),
 
           // Profile + TextField + Image Picker

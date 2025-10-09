@@ -1,80 +1,145 @@
+import 'package:ecoroute/widgets/imageLoader.dart';
 import 'package:ecoroute/widgets/usersPostContainer.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/emptyPage.dart';
+import 'package:ecoroute/api_service.dart';
 
-class LocalPage extends StatelessWidget {
+class LocalPage extends StatefulWidget {
   const LocalPage({super.key});
 
-  static const List<Map<String, dynamic>> LocalPosts = const [
-    {
-      "profilePicUrl": "https://i.pravatar.cc/150?img=1",
-      "username": "Traveler_One",
-      "date": "Sept 13, 2025",
-      "caption": "What a beautiful view of Taal 🌋✨",
-      "images": [
-        "https://picsum.photos/id/1018/600/400",
-        "https://picsum.photos/id/1015/600/400",
-        "https://picsum.photos/id/1019/600/400",
-      ],
-      "isFollowing": false,
-    },
-    {
-      "profilePicUrl": "https://i.pravatar.cc/150?img=2",
-      "username": "NatureLover",
-      "date": "Sept 10, 2025",
-      "caption": "Hiking adventures 🌿⛰️",
-      "images": ["https://picsum.photos/id/1025/600/400"],
-      "isFollowing": true,
-    },
-  ];
+  static bool hasPosts = false;
 
-  static bool get hasPosts => LocalPosts.isNotEmpty;
+  @override
+  State<LocalPage> createState() => _LocalPageState();
+}
+
+class _LocalPageState extends State<LocalPage> {
+  List<Map<String, dynamic>> communityPosts = [];
+  bool isLoading = true;
+  bool _hasLoadedOnce = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOnce();
+  }
+
+  void _loadOnce() {
+    if (!_hasLoadedOnce) {
+      _hasLoadedOnce = true;
+      loadCommunityPosts();
+    }
+  }
+
+  Future<void> loadCommunityPosts() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final posts = await getAllCommunityPosts();
+
+      if (!mounted) return;
+
+      // Ensure no duplicates
+      final uniquePosts = {
+        for (var post in posts) post['communityPost_id']: post,
+      }.values.toList();
+
+      setState(() {
+        communityPosts = uniquePosts;
+        isLoading = false;
+
+        LocalPage.hasPosts = communityPosts.isNotEmpty;
+      });
+    } catch (e) {
+      debugPrint("Error loading community posts: $e");
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        LocalPage.hasPosts = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (LocalPosts.isEmpty) {
-      return Column(
-        children: [
-          const SizedBox(height: 30),
-          EmptyState(
-            imagePath: "images/22.png",
-            title: "No Local Postsss",
-            description: "Be the first to share something with your community!",
-          ),
-        ],
-      );
-    } else {
-      return Column(
-        children: [
-          SizedBox(height: 5),
-          ...LocalPosts.map(
-            (post) => CommunityPost(
-              profilePicUrl: post["profilePicUrl"],
-              username: post["username"],
-              date: post["date"],
-              caption: post["caption"],
-              images: List<String>.from(post["images"]),
-              isFollowing: post["isFollowing"],
+    if (isLoading) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 0),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        height: 800,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 30),
+            const FlickerImageLoader(imagePath: "images/22.png"),
+            const SizedBox(height: 20),
+            const Text(
+              "Loading community posts...",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black54,
+              ),
             ),
-          ),
-          // ListView.builder(
-          //   padding: const EdgeInsets.only(top: 20, bottom: 80),
-          //   itemCount: mockPosts.length,
-          //   itemBuilder: (context, index) {
-          //     final post = mockPosts[index];
-          //     return CommunityPost(
-          //       profilePicUrl: post["profilePicUrl"],
-          //       username: post["username"],
-          //       date: post["date"],
-          //       caption: post["caption"],
-          //       images: List<String>.from(post["images"]),
-          //       isFollowing: post["isFollowing"],
-          //     );
-          //   }, 
-          // ),
-          SizedBox(height: 80),
-        ],
+          ],
+        ),
       );
     }
+
+    if (communityPosts.isEmpty) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 0),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        height: 800,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 30),
+            EmptyState(
+              imagePath: "images/22.png",
+              title: "No Community Posts Yet",
+              description:
+                  "Be the first to share something with your community!",
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsetsGeometry.all(0),
+          child: Column(
+            children: communityPosts.map((post) {
+              return CommunityPost(
+                key: ValueKey(post['communityPost_id']),
+                communityPostId: int.parse(post['communityPost_id'].toString()),
+                userId: int.parse(post['user_id'].toString()),
+                profilePicUrl:
+                    "https://ecoroute-taal.online/uploads/profile_pics/${post['ProfilePic']}",
+                username: post['userName'],
+                date: post['dateCreated'],
+                caption: post['postCaption'],
+                images: List<String>.from(post['postImages'] ?? []),
+                isFollowing: false,
+                likesCount: post['likesCount'],
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 80),
+      ],
+    );
   }
 }

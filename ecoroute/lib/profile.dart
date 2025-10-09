@@ -22,6 +22,12 @@ class _ProfileState extends State<Profile> {
     _postsKey.currentState?.loadUserPosts();
   }
 
+  void _safeSetState(VoidCallback fn) {
+    if (mounted) { 
+      setState(fn);
+    }
+  }
+
   int _currentIndex = 4;
   final _apiService = ApiService();
 
@@ -45,12 +51,12 @@ class _ProfileState extends State<Profile> {
 
       final userData = await _apiService.fetchProfile(accountId: accountId);
 
-      setState(() {
+      _safeSetState(() {
         _user = userData;
         _loading = false;
       });
     } catch (e) {
-      setState(() {
+      _safeSetState(() {
         _error = e.toString();
         _loading = false;
       });
@@ -59,7 +65,7 @@ class _ProfileState extends State<Profile> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Scaffold( 
       backgroundColor: const Color(0xFF011901),
       body: SafeArea(
         child: _loading
@@ -119,7 +125,7 @@ class _ProfileState extends State<Profile> {
                                       padding: EdgeInsets.all(2),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
-                                        shape: BoxShape.circle,
+                                        shape: BoxShape.circle, 
                                         border: Border.all(
                                           color: Colors.green,
                                           width: 2,
@@ -271,7 +277,7 @@ class _ProfileState extends State<Profile> {
                           ? "https://ecoroute-taal.online/uploads/profile_pics/${_user!['profilePic']}"
                           : null,
                       userName: _user?['userName'],
-                      onPostSubmitted: _reloadPosts, // call reload
+                      onPostSubmitted: _reloadPosts, 
                     ),
                     UserProfilePosts(
                       username: _user?['userName'] ?? "Unknown",

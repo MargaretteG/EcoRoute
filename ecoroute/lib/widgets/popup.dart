@@ -1,8 +1,9 @@
+import 'package:ecoroute/forms/AddGroup.dart';
 import 'package:ecoroute/forms/AddTravel.dart';
 import 'package:flutter/material.dart';
 
 class PopUp extends StatelessWidget {
-  final String title;
+  final String title; 
   final IconData headerIcon;
   final String description;
   final bool hasTextField;
@@ -486,7 +487,7 @@ class _AddTravelPopupState extends State<AddTravelPopup> {
                     ),
                     const SizedBox(width: 10),
 
-                    // Plan Now
+                    // Plan Now 
                     ElevatedButton(
                       onPressed: () {
                         if (_formKey.currentState!.validate() &&
@@ -495,7 +496,7 @@ class _AddTravelPopupState extends State<AddTravelPopup> {
                             "title": _titleController.text,
                             "description": _descriptionController.text,
                             "date": _selectedDate,
-                            "days": int.tryParse(_daysController.text) ?? 0,
+                            "days": int.tryParse(_daysController.text) ?? 0, 
                           };
                           Navigator.pop(context);
                           Navigator.push(
@@ -521,6 +522,405 @@ class _AddTravelPopupState extends State<AddTravelPopup> {
                       ),
                       child: const Text(
                         "Plan Now",
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+//Pop Up for add travel group
+class AddTravelGroupPopup extends StatefulWidget {
+  final Function(Map<String, dynamic>) onConfirm;
+
+  const AddTravelGroupPopup({super.key, required this.onConfirm});
+
+  @override
+  State<AddTravelGroupPopup> createState() => _AddTravelGroupPopupState();
+}
+
+class _AddTravelGroupPopupState extends State<AddTravelGroupPopup> {
+  final _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _groupNameController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _daysController = TextEditingController();
+  final TextEditingController _userSearchController = TextEditingController();
+
+  DateTime? _selectedDate;
+
+  // Fake data: list of people the creator follows
+  final List<Map<String, String>> _following = [
+    {"name": "Alex Johnson", "avatar": "https://i.pravatar.cc/150?img=1"},
+    {"name": "aMaria Gomez", "avatar": "https://i.pravatar.cc/150?img=2"},
+    {"name": "aJohn Smith", "avatar": "https://i.pravatar.cc/150?img=3"},
+    {"name": "aSophie Chen", "avatar": "https://i.pravatar.cc/150?img=4"},
+  ];
+
+  final List<Map<String, String>> _selectedUsers = [];
+
+  void _addUser(Map<String, String> user) {
+    if (!_selectedUsers.contains(user)) {
+      setState(() => _selectedUsers.add(user));
+    }
+    _userSearchController.clear();
+  }
+
+  void _removeUser(Map<String, String> user) {
+    setState(() => _selectedUsers.remove(user));
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text =
+            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      insetPadding: const EdgeInsets.all(24),
+      backgroundColor: Colors.white,
+      child: Form(
+        key: _formKey,
+        child: SizedBox(
+          height:
+              MediaQuery.of(context).size.height * 0.75, // set dialog height
+          child: Column(
+            children: [
+              // HEADER (fixed top)
+              Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFF011901),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    topRight: Radius.circular(18),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.group_add, color: Colors.white, size: 22),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        "Create Travel Group",
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // BODY (scrollable)
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Group Name
+                      TextFormField(
+                        controller: _groupNameController,
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? "Group name is required"
+                            : null,
+                        decoration: InputDecoration(
+                          labelText: "Group Name",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+
+                      // Description
+                      TextFormField(
+                        controller: _descriptionController,
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? "Description is required"
+                            : null,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          labelText: "Description",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+
+                      // Date
+                      TextFormField(
+                        controller: _dateController,
+                        readOnly: true,
+                        onTap: () => _pickDate(context),
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? "Date is required"
+                            : null,
+                        decoration: InputDecoration(
+                          labelText: "Start Date",
+                          suffixIcon: const Icon(Icons.calendar_today),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+
+                      // Days
+                      TextFormField(
+                        controller: _daysController,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return "Number of days is required";
+                          }
+                          final days = int.tryParse(value);
+                          if (days == null || days <= 0) {
+                            return "Enter a valid number of days";
+                          }
+                          return null;
+                        },
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: "Number of Days",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+
+                      // Add People
+                      TextField(
+                        controller: _userSearchController,
+                        decoration: InputDecoration(
+                          labelText: "Add People",
+                          suffixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onChanged: (value) => setState(() {}),
+                      ),
+
+                      // Dropdown
+                      Builder(
+                        builder: (context) {
+                          if (_userSearchController.text.isEmpty) {
+                            return const SizedBox();
+                          }
+
+                          final filtered = _following
+                              .where(
+                                (u) => u["name"]!.toLowerCase().contains(
+                                  _userSearchController.text.toLowerCase(),
+                                ),
+                              )
+                              .toList();
+
+                          if (filtered.isEmpty) return const SizedBox();
+
+                          return Container(
+                            constraints: const BoxConstraints(maxHeight: 120),
+                            margin: const EdgeInsets.only(top: 6),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final user = filtered[index];
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundImage: NetworkImage(
+                                      user["avatar"]!,
+                                    ),
+                                  ),
+                                  title: Text(user["name"]!),
+                                  onTap: () {
+                                    _addUser(user);
+                                    _userSearchController.clear();
+                                    setState(() {});
+                                  },
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      // Selected Members
+                      if (_selectedUsers.isNotEmpty)
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 80),
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _selectedUsers.length,
+                            itemBuilder: (context, index) {
+                              final user = _selectedUsers[index];
+                              return Container(
+                                width: 140,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 8,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: const Color(0xFFF4F4F4),
+                                ),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 16,
+                                      backgroundImage: NetworkImage(
+                                        user["avatar"]!,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        user["name"]!,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => _removeUser(user),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.red,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // BUTTONS
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFFF4F4F4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 15,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF666666),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) {
+                          final data = {
+                            "groupName": _groupNameController.text,
+                            "description": _descriptionController.text,
+                            "date": _dateController.text,
+                            "days": int.tryParse(_daysController.text),
+                            "members": _selectedUsers,
+                          };
+
+                          Navigator.pop(context);
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AddGroupTravel(groupData: data),
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF7C11),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 15,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: const Text(
+                        "Create Group",
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,

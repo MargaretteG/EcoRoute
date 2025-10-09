@@ -1,24 +1,106 @@
+import 'dart:convert';
 import 'package:ecoroute/forms/AddTravel.dart';
+import 'package:ecoroute/travelPage/ViewTravelplan.dart';
+import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/popup.dart';
 import 'package:ecoroute/widgets/travelContainer.dart';
-import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customTravelheader.dart';
 import 'package:ecoroute/widgets/emptyPage.dart';
+import 'package:ecoroute/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class TravelPlans extends StatelessWidget {
-  const TravelPlans({super.key});
+class TravelPlans extends StatefulWidget {
+  final VoidCallback? onDataChanged;
+  const TravelPlans({super.key, this.onDataChanged});
+
+  @override
+  State<TravelPlans> createState() => _TravelPlansState();
+}
+
+class _TravelPlansState extends State<TravelPlans> {
+  List<Map<String, dynamic>> travelPlans = [];
+  bool isLoading = true;
+
+  void _safeSetState(VoidCallback fn) {
+    if (mounted) {
+      setState(fn);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTravelPlans();
+  }
+
+  Future<void> _loadTravelPlans() async {
+    _safeSetState(() => isLoading = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance(); 
+      final accountId = prefs.getInt('accountId') ?? 0;
+
+      if (accountId == 0) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("User not logged in")));
+        _safeSetState(() => isLoading = false);
+        return;
+      }
+
+      final plans = await fetchTravelPlan(accountId: accountId);
+
+      _safeSetState(() {
+        travelPlans = plans.map<Map<String, dynamic>>((plan) {
+          return {
+            'addTravel_id': plan['addTravel_id'],
+            'title': plan['travelTitle'],
+            'date': plan['travelStartDate'],
+            'customColor': plan['customColor'],
+          };
+        }).toList();
+      });
+    } catch (e) {
+      print("Error fetching travel plans: $e");
+    } finally {
+      _safeSetState(() => isLoading = false);
+    }
+  }
+
+  Color _parseColor(String? hexColor) {
+    if (hexColor == null || hexColor.isEmpty) {
+      return Colors.green;
+    }
+    String cleaned = hexColor.replaceFirst('#', '');
+    if (cleaned.length == 6) {
+      cleaned = 'FF$cleaned';
+    }
+    return Color(int.parse(cleaned, radix: 16));
+  }
+
+  void _openAddTravelPopup() async {
+    final newPlan = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => AddTravelPopup(
+        onConfirm: (data) async {
+          Navigator.pop(context);
+
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => AddTravel(travelData: data)),
+          );
+
+          if (result == true && mounted) {
+            await _loadTravelPlans();
+            widget.onDataChanged?.call();
+          }
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> travelPlans = [
-      // {
-      //   'icon': Icons.wallet_travel_rounded,
-      //   'title': 'Unwind Trip',
-      //   'date': 'July 9, 2025',
-      //   'iconBackgroundColor': Colors.green,
-      // },
-    ];
-
     return Scaffold(
       backgroundColor: const Color(0xFF011901),
       body: SingleChildScrollView(
@@ -28,19 +110,7 @@ class TravelPlans extends StatelessWidget {
               title: 'Travel Plans',
               subtitle: 'Create New Travel Plan',
               showBottomRow: true,
-              onIconTap: () {
-                showDialog(
-                  context: context,
-                  builder: (_) => AddTravelPopup(
-                    onConfirm: (data) {
-                      print("Travel Title: ${data['title']}");
-                      print("Description: ${data['description']}");
-                      print("Date: ${data['date']}");
-                      print("Days: ${data['days']}");
-                    },
-                  ),
-                );
-              },
+              onIconTap: _openAddTravelPopup,
             ),
             const SizedBox(height: 10),
             Stack(
@@ -48,17 +118,18 @@ class TravelPlans extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 0),
                   child: Container(
-                    constraints: BoxConstraints(minHeight: 500),
-
-                    // height: MediaQuery.of(context).size.height,
+                    constraints: const BoxConstraints(minHeight: 500),
                     width: double.infinity,
                     decoration: const BoxDecoration(
-                      color: Color.fromARGB(255, 255, 255, 255),
+                      color: Colors.white,
                       borderRadius: BorderRadius.vertical(
                         top: Radius.circular(50),
                       ),
                     ),
-                    child: travelPlans.isEmpty
+
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : travelPlans.isEmpty
                         ? Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Column(
@@ -75,29 +146,77 @@ class TravelPlans extends StatelessWidget {
                             ),
                           )
                         : Column(
-                            children: travelPlans.map((plan) {
-                              return Column(
-                                children: [
-                                  SizedBox(height: 20),
-                                  TravelContainer(
-                                    icon: plan['icon'],
-                                    title: plan['title'],
-                                    date: plan['date'],
-                                    iconBackgroundColor:
-                                        plan['iconBackgroundColor'],
-                                    onTap: () {
-                                      // Navigate or show details
-                                    },
-                                    onEdit: () {
-                                      // Edit logic
-                                    },
-                                    onDelete: () {
-                                      // Delete logic
-                                    },
-                                  ),
-                                ],
-                              );
-                            }).toList(),
+                            children: [
+                              Column(
+                                children: travelPlans.map((plan) {
+                                  return Column(
+                                    children: [
+                                      const SizedBox(height: 20),
+                                      TravelContainer(
+                                        travelId: plan['addTravel_id'],
+                                        title: plan['title'],
+                                        date: plan['date'],
+                                        iconBackgroundColor: _parseColor(
+                                          plan['customColor'],
+                                        ),
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => ViewTravel(
+                                                addTravelId:
+                                                    plan['addTravel_id'],
+                                              ),
+                                            ),
+                                          );
+                                        },
+
+                                        onEdit: () {},
+                                        onDelete: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (_) => PopUp(
+                                              title: "Delete Travel Plan",
+                                              headerIcon:
+                                                  Icons.delete_forever_rounded,
+                                              description:
+                                                  "Are you sure you want to delete this travel plan?",
+                                              confirmText: "Delete",
+                                              hasTextField: false,
+                                              onConfirm: () async {
+                                                bool success =
+                                                    await deleteTravelPlan(
+                                                      plan['addTravel_id'],
+                                                    );
+                                                if (success) {
+                                                  Navigator.pop(context, true);
+                                                } else {
+                                                  Navigator.pop(context, false);
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        "Failed to delete plan",
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                          );
+
+                                          if (confirm == true) {
+                                            _loadTravelPlans(); // refresh list after deletion
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                              SizedBox(height: 100),
+                            ],
                           ),
                   ),
                 ),

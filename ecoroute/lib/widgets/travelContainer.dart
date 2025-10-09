@@ -2,28 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class TravelContainer extends StatelessWidget {
-  final IconData icon;
   final String title;
   final String date;
   final Color iconBackgroundColor;
+  final int travelId;
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final String? type;
+  final List<String>? memberImages;
 
   const TravelContainer({
     super.key,
-    required this.icon,
     required this.title,
     required this.date,
     required this.iconBackgroundColor,
+    required this.travelId,
     this.onTap,
     this.onEdit,
     this.onDelete,
+    this.type,
+    this.memberImages,
   });
 
-  // Generate a lighter shade for the background
   Color _getLighterColor(Color color) {
     return Color.lerp(color, Colors.white, 0.7)!;
+  }
+
+  Color _getDarkerColor(Color color) {
+    return Color.lerp(color, const Color.fromARGB(255, 0, 0, 0), 0.2)!;
   }
 
   @override
@@ -53,42 +60,110 @@ class TravelContainer extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: iconBackgroundColor,
+                  color: _getDarkerColor(iconBackgroundColor),
                 ),
-                child: Icon(icon, color: Colors.white, size: 40),
+                child: Icon(
+                  Icons.wallet_travel_rounded,
+                  color: Colors.white,
+                  size: 30,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // TITLE
                     Text(
                       title.toUpperCase(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Color(0xFF011901),
                         fontWeight: FontWeight.w900,
-                        fontSize: 20,
+                        height: 1.1,
+                        fontSize: 15,
                       ),
                     ),
                     const SizedBox(height: 4),
+
+                    // DATE ROW
                     Row(
                       children: [
                         const Icon(
                           Icons.calendar_month_outlined,
                           size: 16,
-                          color: Color(0xFF011901),
+                          color: Color.fromARGB(157, 1, 25, 1),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           date,
                           style: const TextStyle(
-                            color: Color(0xFF011901),
+                            color: Color.fromARGB(157, 1, 25, 1),
                             fontWeight: FontWeight.w100,
-                            fontSize: 15,
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
+
+                    // MEMBER CIRCLES for GROUP TRAVEL
+                    if (type == "GroupTravel" &&
+                        memberImages != null &&
+                        memberImages!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          // show up to 4 members
+                          for (
+                            int i = 0;
+                            i < memberImages!.length && i < 4;
+                            i++
+                          ) ...[
+                            Container(
+                              width: 26,
+                              height: 26,
+                              margin: const EdgeInsets.only(right: 4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: iconBackgroundColor,
+                                  width: 1.5,
+                                ),
+                                image: DecorationImage(
+                                  image: memberImages![i].startsWith('http')
+                                      ? NetworkImage(memberImages![i])
+                                      : const AssetImage(
+                                              'images/profile_picture.png',
+                                            )
+                                            as ImageProvider,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (memberImages!.length > 4)
+                            Container(
+                              width: 26,
+                              height: 26,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: iconBackgroundColor,
+                              ),
+                              child: Text(
+                                '+${memberImages!.length - 4}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

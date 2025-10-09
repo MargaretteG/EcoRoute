@@ -14,7 +14,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
-    super.initState();
+    super.initState(); 
 
     Timer(const Duration(seconds: 5), () {
       Navigator.of(context).pushReplacement(_createBlurRoute());
@@ -60,7 +60,7 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF142900), // Dark green background
       body: Center(
-        child: Image.asset(
+        child: Image.asset(  
           'images/animated-logo-3.gif',
           height: 270, // adjust size as needed
         ),

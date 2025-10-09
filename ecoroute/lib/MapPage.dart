@@ -33,9 +33,11 @@ class _MapPageState extends State<MapPage> {
     if (accountId == null) return;
 
     final userData = await _api.fetchProfile(accountId: accountId);
+
+    if (!mounted) return;
+
     setState(() {
       _user = userData;
-      // _loading = false;
     });
   }
 
