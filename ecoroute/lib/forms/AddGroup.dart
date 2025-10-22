@@ -3,6 +3,7 @@ import 'package:ecoroute/notificationPage.dart';
 import 'package:ecoroute/widgets/bottomPopup.dart';
 import 'package:ecoroute/widgets/colorPicker.dart';
 import 'package:ecoroute/widgets/custom_button.dart';
+import 'package:ecoroute/widgets/popup.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,12 +32,14 @@ class _AddGroupTravelState extends State<AddGroupTravel> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   final ScrollController _dayScrollController = ScrollController();
+  List<Map<String, String>> _following = [];
 
-  // 👥 Members
   List<Map<String, String>> members = [];
 
   bool isEditingTitle = false;
   bool isEditingDescription = false;
+
+  Set<String> dismissedTips = {};
 
   @override
   void initState() {
@@ -60,6 +63,7 @@ class _AddGroupTravelState extends State<AddGroupTravel> {
     _descriptionController = TextEditingController(text: description);
 
     _generateDays(startDate, preserve: false);
+    _fetchFollowing();
   }
 
   @override
@@ -132,31 +136,66 @@ class _AddGroupTravelState extends State<AddGroupTravel> {
     }
   }
 
-  void _addDestination({String? pinnedPlace}) {
-    final newDest = {
-      "place": pinnedPlace ?? "",
-      "time": TimeOfDay.now().format(context),
-    };
-    setState(() {
-      travelDays[selectedDayIndex]['destinations'].add(newDest);
-    });
-  }
-
   //Api Connection
-  Future<void> _saveToDatabase() async {
+  Future<bool> _saveToDatabase() async {
+    bool hasShownValidationAlert = false;
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final accountId = prefs.getInt('accountId') ?? 0;
 
       if (accountId == 0) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("User not logged in")));
-        return;
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.person_off_rounded,
+          message: "User not logged in",
+          warning: true,
+        );
+        return false;
       }
 
       String customColorHex =
           '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}';
+
+      final List<Map<String, dynamic>> allDestinations = [];
+      bool hasEmptyDay = false;
+
+      for (var day in travelDays) {
+        final destinations = day['destinations'] as List;
+        if (destinations.isEmpty) {
+          hasEmptyDay = true;
+        } else {
+          for (var dest in destinations) {
+            allDestinations.add({
+              "dayNumber": day['day'],
+              "establishment_id": dest['establishment_id'],
+              "destinationTime": dest['time'],
+            });
+          }
+        }
+      }
+
+      if (hasEmptyDay) {
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.warning_amber_rounded,
+          message: "Please add at least one destination for each day",
+          alert: true,
+        );
+        hasShownValidationAlert = true;
+        return false;
+      }
+
+      if (allDestinations.isEmpty) {
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.add_box_rounded,
+          message: "Please add at least one destination",
+          alert: true,
+        );
+        hasShownValidationAlert = true;
+        return false;
+      }
 
       final response = await addGroupTravel(
         accountId: accountId,
@@ -166,32 +205,81 @@ class _AddGroupTravelState extends State<AddGroupTravel> {
         groupTravelNumDays: days.toString(),
         groupTravelMembers: members,
         customColor: customColorHex,
+        destinations: allDestinations,
       );
 
       if (response['status'] == 'success') {
-        final newPlan = {
-          'title': title.isNotEmpty ? title : "Untitled Travel",
-          'date': DateFormat('yyyy-MM-dd').format(startDate),
-          'description': description,
-          'days': days, 
-          'members': members,
-          'customColor': customColorHex,
-          'groupTravel_id': response['groupTravelId'],
-        };
-
-        Navigator.pop(context, newPlan);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed: ${response['message']}")),
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.check_circle_rounded,
+          message: "Travel plan and destinations saved!",
         );
+        return true;
+      } else {
+        if (!hasShownValidationAlert) {
+          showCustomSnackBar(
+            context: context,
+            icon: Icons.error_outline,
+            message: "Failed: ${response['message']}",
+            warning: true,
+          );
+        }
+        return false;
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error saving: $e")));
+      if (!hasShownValidationAlert) {
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.error_outline,
+          message: "Error saving: $e",
+          warning: true,
+        );
+      }
+      return false;
     }
   }
- 
+
+  bool _loadingFollowing = true;
+  Future<void> _fetchFollowing() async {
+    setState(() => _loadingFollowing = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final loggedInId = prefs.getInt('accountId') ?? 0;
+      debugPrint("Logged in user ID: $loggedInId");
+
+      if (loggedInId == 0) {
+        throw Exception("User not logged in");
+      }
+
+      final followingData = await fetchFollowersFollowing(loggedInId);
+      debugPrint("Following API raw data: ${followingData['following']}");
+
+      final followingList = (followingData['following'] as List? ?? [])
+          .map<Map<String, String>>(
+            (u) => {
+              'id': (u['user_id'] ?? '').toString(),
+              'name': (u['username'] ?? 'Unknown').toString(),
+              'avatar':
+                  (u['profile_pic'] != null &&
+                      u['profile_pic'].toString().isNotEmpty)
+                  ? u['profile_pic'].toString()
+                  : "https://ecoroute-taal.online/images/default_profile.png",
+            },
+          )
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _following = followingList;
+        _loadingFollowing = false;
+      });
+    } catch (e) {
+      setState(() => _loadingFollowing = false);
+      debugPrint("Failed to fetch following: $e");
+    }
+  }
+
   // Member controls
   void _removeMember(Map<String, String> user) {
     setState(() {
@@ -581,8 +669,31 @@ class _AddGroupTravelState extends State<AddGroupTravel> {
                                                           size: 20,
                                                           color: Colors.green,
                                                         ),
-                                                        onPressed:
-                                                            () {}, // your add member function
+                                                        onPressed: () async {
+                                                          await showDialog(
+                                                            context: context,
+                                                            builder: (_) => AddMemberPopup(
+                                                              following:
+                                                                  _following, // your following list
+                                                              existingMembers:
+                                                                  members, // currently added members in group
+                                                              onConfirm: (selected) {
+                                                                setState(() {
+                                                                  members.addAll(
+                                                                    selected.where(
+                                                                      (
+                                                                        newUser,
+                                                                      ) => !members
+                                                                          .contains(
+                                                                            newUser,
+                                                                          ),
+                                                                    ),
+                                                                  ); // avoid duplicates
+                                                                });
+                                                              },
+                                                            ),
+                                                          );
+                                                        },
                                                       ),
                                                     ),
                                                   );
@@ -843,6 +954,7 @@ class _AddGroupTravelState extends State<AddGroupTravel> {
                                                           updated;
                                                     });
                                                   },
+                                                  dismissedTips: dismissedTips,
                                                 ),
 
                                                 const SizedBox(height: 20),
@@ -881,9 +993,61 @@ class _AddGroupTravelState extends State<AddGroupTravel> {
                                             shadowColor: Colors.black
                                                 .withOpacity(1),
                                           ),
-                                          onPressed: _saveToDatabase,
+                                          onPressed: () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (_) => PopUp(
+                                                title: "Save Travel Group",
+                                                headerIcon: Icons
+                                                    .check_circle_outline_rounded,
+                                                description:
+                                                    "Are you sure you want to save this travel group?",
+                                                confirmText: "Save",
+                                                hasTextField: false,
+                                                onConfirm: () async {
+                                                  Navigator.pop(
+                                                    context,
+                                                    true,
+                                                  ); // close popup and confirm save
+                                                },
+                                              ),
+                                            );
 
-                                          child: Text(
+                                            if (confirm == true) {
+                                              // Perform loading while saving
+                                              showDialog(
+                                                context: context,
+                                                barrierDismissible: false,
+                                                builder: (_) => const Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        color: Colors.green,
+                                                      ),
+                                                ),
+                                              );
+
+                                              final response =
+                                                  await _saveToDatabase();
+
+                                              // Close loading
+                                              Navigator.pop(context);
+
+                                              if (response == true) {
+                                                Navigator.pop(context, true);
+                                              } else {
+                                                showCustomSnackBar(
+                                                  context: context,
+                                                  icon: Icons
+                                                      .warning_amber_rounded,
+                                                  message:
+                                                      "Failed to save Travel Group",
+                                                  warning: true,
+                                                );
+                                              }
+                                            }
+                                          },
+
+                                          child: const Text(
                                             'Save Travel',
                                             style: TextStyle(
                                               fontSize: 15,
@@ -910,23 +1074,9 @@ class _AddGroupTravelState extends State<AddGroupTravel> {
           ],
         ),
       ),
-      floatingActionButton:
-          travelDays[selectedDayIndex]['destinations'].isNotEmpty
-          ? FloatingBtn(
-              icon: Icons.auto_awesome,
-              iconColor: const Color(0xFF64F67A),
-              auraColor: const Color(0xFFFF9616),
-              onPressed: () {
-                RecommendationBottomPopup.show(context, (pinnedTitle) {
-                  _addDestination(pinnedPlace: pinnedTitle);
-                });
-              },
-            )
-          : null,
     );
   }
 
-  // 🔹 Reusable editable field (keeps design consistent)
   Widget _buildEditableField({
     required String label,
     required String text,

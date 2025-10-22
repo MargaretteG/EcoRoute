@@ -45,17 +45,17 @@ class _TravelPageState extends State<TravelPage> {
   final commCategories = [
     {
       'text': 'Travel Plans',
-      'icon': Icons.wallet_travel_rounded,
+      'icon': Icons.directions_outlined,
       'isFilled': false,
     },
     {
       'text': 'Travel Wishlists',
-      'icon': Icons.wallet_travel_rounded,
+      'icon': Icons.favorite_border_rounded,
       'isFilled': false,
     },
     {
       'text': 'Travel Groups',
-      'icon': Icons.wallet_travel_rounded,
+      'icon': Icons.groups_2_outlined,
       'isFilled': true,
     },
   ];
@@ -74,7 +74,7 @@ class _TravelPageState extends State<TravelPage> {
       case 0:
         return TravelPlans(
           onDataChanged: () {
-            setState(() {}); // triggers rebuild after adding/deleting a travel
+            setState(() {});
           },
         );
       case 1:

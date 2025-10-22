@@ -29,39 +29,104 @@ class _ViewTravelState extends State<ViewTravel> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final accountId = prefs.getInt('accountId') ?? 0;
+      if (accountId == 0) throw Exception("No accountId found");
 
-      if (accountId == 0) {
-        throw Exception("No accountId found in SharedPreferences");
-      }
+      final establishments = await fetchAllEstablishments();
+      final estMap = {for (var e in establishments) e['establishment_id']: e};
 
-      // fetch all plans
       final uri = Uri.parse(
         "${ApiService.baseUrl}fetchTravelPlan.php?accountId=$accountId",
       );
       final response = await http.get(uri).timeout(ApiService.requestTimeout);
+      if (response.statusCode != 200)
+        throw Exception("HTTP ${response.statusCode}");
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body);
+      if (data['status'] != 'success')
+        throw Exception(data['message'] ?? 'Failed');
 
-        if (data['status'] == 'success') {
-          final List<dynamic> plans = data['data'] ?? [];
-
-          // find plan with matching addTravel_id
-          final foundPlan = plans.firstWhere(
-            (plan) =>
-                plan['addTravel_id'].toString() ==
-                widget.addTravelId.toString(),
-            orElse: () => null,
-          );
-
-          setState(() {
-            travelPlan = foundPlan;
-            isLoading = false;
-          });
-        } else {
-          setState(() => isLoading = false);
-        }
+      final List<dynamic> plans = data['data'] ?? [];
+      final foundPlan = plans.firstWhere(
+        (plan) =>
+            plan['addTravel_id'].toString() == widget.addTravelId.toString(),
+        orElse: () => null,
+      );
+ 
+      if (foundPlan == null) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
       }
+
+      final startDate =
+          DateTime.tryParse(foundPlan['travelStartDate'] ?? '') ??
+          DateTime.now();
+
+      Map<int, List<Map<String, String>>> itinerary = {};
+
+      for (var dest in foundPlan['destinations'] ?? []) {
+        int dayNumber = dest['dayNumber'] ?? 1;
+
+        final estId = int.tryParse(dest['establishment_id'].toString()) ?? 0;
+        final estData = estMap[estId];
+
+        final estName = estData?['establishmentName'] ?? 'Unknown';
+        final recognitionRating =
+            estData?['recognitionRating']?.toString() ?? '0';
+        final ecoRating = estData?['userRating']?.toString() ?? '0';
+
+        // Handle time formatting
+        // Handle time formatting
+        String timeStr = '';
+        if (dest['destinationTime'] != null &&
+            dest['destinationTime'].isNotEmpty) {
+          try {
+            // Assuming format is "HH:mm:ss"
+            final timeParts = dest['destinationTime'].split(':');
+            int hour = int.parse(timeParts[0]);
+            int minute = int.parse(timeParts[1]);
+            final dt = DateTime(
+              startDate.year,
+              startDate.month,
+              startDate.day,
+              hour,
+              minute,
+            );
+            timeStr = DateFormat("hh:mm a").format(dt);
+          } catch (e) {
+            // fallback
+            timeStr = DateFormat("hh:mm a").format(startDate);
+          }
+        } else {
+          timeStr = DateFormat("hh:mm a").format(startDate);
+        }
+
+        if (!itinerary.containsKey(dayNumber)) itinerary[dayNumber] = [];
+
+        itinerary[dayNumber]!.add({
+          "time": timeStr,
+          "destination": estName,
+          "recognitionRating": recognitionRating,
+          "ecoRating": ecoRating,
+        });
+      }
+
+      // Sort each day's destinations by time
+      for (var day in itinerary.keys) {
+        itinerary[day]!.sort((a, b) {
+          final t1 = DateFormat("hh:mm a").parse(a["time"]!);
+          final t2 = DateFormat("hh:mm a").parse(b["time"]!);
+          return t1.compareTo(t2);
+        });
+      }
+
+      setState(() {
+        travelPlan = foundPlan;
+        sampleItinerary.clear();
+        sampleItinerary.addAll(itinerary);
+        isLoading = false;
+      });
     } catch (e) {
       print("Error fetching details: $e");
       setState(() => isLoading = false);
@@ -82,7 +147,7 @@ class _ViewTravelState extends State<ViewTravel> {
   Color getLightestColor(Color color) {
     return Color.lerp(color, Colors.white, 0.9)!;
   }
- 
+
   // Inside your _ViewTravelState
 
   int selectedDay = 1;
@@ -233,7 +298,7 @@ class _ViewTravelState extends State<ViewTravel> {
     final String colorHex = travelPlan!['customColor'] ?? '#EBFFEB';
 
     final String cleaned = colorHex.replaceFirst('#', '');
-    final Color bgColor = Color( 
+    final Color bgColor = Color(
       int.parse(cleaned.length == 6 ? "FF$cleaned" : cleaned, radix: 16),
     );
 
@@ -392,7 +457,6 @@ class _ViewTravelState extends State<ViewTravel> {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                        
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Container(

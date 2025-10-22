@@ -19,7 +19,7 @@ dependencies:
   flutter_map: ^6.1.0
   latlong2: ^0.9.0 
   google_maps_flutter: ^2.6.0   
-  geolocator: ^11.0.0
+  geolocator: ^13.0.1
   shared_preferences: ^2.5.2
   http: ^1.4.0
   flutter_secure_storage: ^9.2.4
@@ -27,6 +27,10 @@ dependencies:
   fluttertoast: ^8.2.4
   cached_network_image: ^3.2.3
   intl: ^0.18.1
+  permission_handler: ^11.3.0
+  flutter_polyline_points: ^3.0.1 
+  url_launcher: ^6.3.0
+  geocoding: ^2.0.5
 
 dev_dependencies:
   flutter_test:

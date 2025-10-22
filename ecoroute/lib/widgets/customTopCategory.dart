@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 class CategoryRow extends StatefulWidget {
   final List<Map<String, dynamic>> categories;
   final ValueChanged<int>? onCategorySelected;
+  final bool useSheerBackground;
 
   const CategoryRow({
     super.key,
     required this.categories,
     this.onCategorySelected,
+    this.useSheerBackground = false,
   });
 
   @override
@@ -38,11 +40,11 @@ class _CategoryRowState extends State<CategoryRow> {
                 setState(() {
                   _selectedIndex = index;
                 });
-                // Only call if defined (TravelPage only)
                 if (widget.onCategorySelected != null) {
                   widget.onCategorySelected!(index);
                 }
               },
+              useSheerBackground: widget.useSheerBackground,
             ),
           );
         }),

@@ -151,6 +151,7 @@ class UserProfilePostsState extends State<UserProfilePosts> {
                       ),
                       likesCount: post['likesCount'],
                       userId: loggedInUserId ?? 0,
+                      postType: 'loggedInUser',
                     );
                   }).toList(),
                 ),

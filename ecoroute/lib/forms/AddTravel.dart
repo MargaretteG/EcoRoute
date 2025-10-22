@@ -8,6 +8,10 @@ import 'package:ecoroute/notificationPage.dart';
 import 'package:ecoroute/widgets/bottomPopup.dart';
 import 'package:ecoroute/widgets/custom_button.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'dart:math';
 
 class AddTravel extends StatefulWidget {
   final Map<String, dynamic> travelData;
@@ -19,6 +23,9 @@ class AddTravel extends StatefulWidget {
 }
 
 class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
+  // final GlobalKey<_TravelDayEditorState> _editorKey =
+  //     GlobalKey<_TravelDayEditorState>();
+
   Color selectedColor = const Color.fromARGB(255, 235, 255, 235);
   late String title;
   late String description;
@@ -32,10 +39,11 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
 
-  late List<Map<String, dynamic>> travelDays;
+  final ScrollController _dayScrollController = ScrollController();
+  List<Map<String, dynamic>> travelDays = [];
   int selectedDayIndex = 0;
 
-  final ScrollController _dayScrollController = ScrollController();
+  Set<String> dismissedTips = {};
 
   @override
   void initState() {
@@ -51,17 +59,6 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
     _generateDays(startDate, preserve: false);
   }
 
-  void _addDestination({String? pinnedPlace}) {
-    final now = TimeOfDay.now().format(context);
-
-    setState(() {
-      travelDays[selectedDayIndex]['destinations'].add({
-        "place": pinnedPlace ?? "",
-        "time": now,
-      });
-    });
-  }
-
   @override
   void dispose() {
     _titleController.dispose();
@@ -70,28 +67,23 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
   }
 
   void _generateDays(DateTime newStart, {bool preserve = true}) {
-    final old = preserve ? travelDays : null;
-
-    travelDays = List.generate(days, (index) {
+    final newTravelDays = List.generate(days, (index) {
       final date = newStart.add(Duration(days: index));
-      Map<String, dynamic>? existing = (old != null && index < old.length)
-          ? old[index]
-          : null;
+      final prev = index < travelDays.length ? travelDays[index] : null;
 
       return {
-        "day": index + 1,
-        "date": date,
-        "title": existing != null
-            ? existing['title'] ?? 'Day ${index + 1}'
-            : 'Day ${index + 1}',
-        "destinations": existing != null
-            ? List<Map<String, dynamic>>.from(existing['destinations'] ?? [])
-            : <Map<String, dynamic>>[],
+        'day': index + 1,
+        'date': date,
+        'title': prev != null && preserve ? prev['title'] : 'Day ${index + 1}',
+        'destinations': prev != null && preserve
+            ? List.from(prev['destinations'])
+            : [],
       };
     });
 
     setState(() {
       startDate = newStart;
+      travelDays = newTravelDays;
       if (selectedDayIndex >= travelDays.length) {
         selectedDayIndex = travelDays.length - 1;
       }
@@ -136,43 +128,103 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
     );
   }
 
-  //Api Connection
   Future<bool> _saveToDatabase() async {
+    bool hasShownValidationAlert = false;
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final accountId = prefs.getInt('accountId') ?? 0;
 
       if (accountId == 0) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("User not logged in")));
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.person_off_rounded,
+          message: "User not logged in",
+          warning: true,
+        );
         return false;
       }
 
       String customColorHex =
           '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}';
 
-      final response = await addTravelPlan(
+      final List<Map<String, dynamic>> allDestinations = [];
+      bool hasEmptyDay = false;
+
+      for (var day in travelDays) {
+        final destinations = day['destinations'] as List;
+        if (destinations.isEmpty) {
+          hasEmptyDay = true;
+        } else {
+          for (var dest in destinations) {
+            allDestinations.add({
+              "dayNumber": day['day'],
+              "establishment_id": dest['establishment_id'],
+              "destinationTime": dest['time'],
+            });
+          }
+        }
+      }
+
+      if (hasEmptyDay) {
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.warning_amber_rounded,
+          message: "Please add at least one destination for each day",
+          alert: true,
+        );
+        hasShownValidationAlert = true;
+        return false;
+      }
+
+      if (allDestinations.isEmpty) {
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.add_box_rounded,
+          message: "Please add at least one destination",
+          alert: true,
+        );
+        hasShownValidationAlert = true;
+        return false;
+      }
+
+      final response = await addTravelPlanWithDestination(
         accountId: accountId,
         travelTitle: title.isNotEmpty ? title : "Untitled Travel",
         travelDescription: description,
         travelStartDate: DateFormat('yyyy-MM-dd').format(startDate),
         travelNumDays: days.toString(),
         customColor: customColorHex,
+        destinations: allDestinations,
       );
 
       if (response['status'] == 'success') {
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.check_circle_rounded,
+          message: "Travel plan and destinations saved!",
+        );
         return true;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed: ${response['message']}")),
-        );
+        if (!hasShownValidationAlert) {
+          showCustomSnackBar(
+            context: context,
+            icon: Icons.error_outline,
+            message: "Failed: ${response['message']}",
+            warning: true,
+          );
+        }
         return false;
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error saving: $e")));
+      if (!hasShownValidationAlert) {
+        showCustomSnackBar(
+          context: context,
+          icon: Icons.error_outline,
+          message: "Error saving: $e",
+          warning: true,
+        );
+      }
       return false;
     }
   }
@@ -685,6 +737,7 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
                                                           updated;
                                                     });
                                                   },
+                                                  dismissedTips: dismissedTips,
                                                 ),
 
                                                 const SizedBox(height: 20),
@@ -763,17 +816,15 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
                                               Navigator.pop(context);
 
                                               if (response == true) {
-                                                // ✅ When successfully saved, pop back to TravelPlans with true
                                                 Navigator.pop(context, true);
                                               } else {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      "Failed to save travel plan",
-                                                    ),
-                                                  ),
+                                                showCustomSnackBar(
+                                                  context: context,
+                                                  icon: Icons
+                                                      .warning_amber_rounded,
+                                                  message:
+                                                      "Failed to save Travel Plan",
+                                                  warning: true,
                                                 );
                                               }
                                             }
@@ -806,33 +857,21 @@ class _AddTravelState extends State<AddTravel> with TickerProviderStateMixin {
           ],
         ),
       ),
-      floatingActionButton:
-          travelDays[selectedDayIndex]['destinations'].isNotEmpty
-          ? FloatingBtn(
-              icon: Icons.auto_awesome,
-              iconColor: const Color(0xFF64F67A),
-              auraColor: const Color(0xFFFF9616),
-              onPressed: () {
-                RecommendationBottomPopup.show(context, (pinnedTitle) {
-                  _addDestination(pinnedPlace: pinnedTitle);
-                });
-              },
-            )
-          : null,
     );
   }
 }
 
-// TravelDayEditor Widget
-
+// Travel Day Editor Widget
 class TravelDayEditor extends StatefulWidget {
   final Map<String, dynamic> dayData;
   final ValueChanged<Map<String, dynamic>> onChanged;
+  final Set<String> dismissedTips;
 
   const TravelDayEditor({
     super.key,
     required this.dayData,
     required this.onChanged,
+    required this.dismissedTips,
   });
 
   @override
@@ -843,65 +882,247 @@ class _TravelDayEditorState extends State<TravelDayEditor> {
   late TextEditingController _dayTitleController;
   late List<TextEditingController> _placeControllers = [];
   late List<TextEditingController> _timeControllers;
+  int currentUserId = 0;
+
+  late Set<String> _dismissedTips = {};
+
+  Color getEcoColor(int ecoRating) {
+    switch (ecoRating) {
+      case 1:
+        return const Color.fromARGB(255, 0, 123, 223);
+      case 2:
+        return Colors.purple;
+      case 3:
+        return Colors.orange;
+      case 4:
+        return const Color.fromARGB(255, 216, 195, 0);
+      case 5:
+        return const Color.fromARGB(255, 0, 215, 7);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> _loadDismissedTips() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList('dismissedTips') ?? [];
+    setState(() {
+      _dismissedTips = stored.toSet(); // Now this is fine
+    });
+  }
+
+  Future<void> _saveDismissedTips() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('dismissedTips', _dismissedTips.toList());
+  }
 
   @override
   void initState() {
     super.initState();
+    _dismissedTips = widget.dismissedTips;
     _dayTitleController = TextEditingController(
       text: widget.dayData['title'] ?? '',
     );
 
-    final dests = widget.dayData['destinations'] as List<dynamic>;
+    final dests = (widget.dayData['destinations'] as List<dynamic>)
+        .map<Map<String, dynamic>>((d) => Map<String, dynamic>.from(d))
+        .toList();
+
     _placeControllers = dests
         .map<TextEditingController>(
           (d) => TextEditingController(text: d['place'] ?? ''),
         )
         .toList();
+
     _timeControllers = dests
         .map<TextEditingController>(
           (d) => TextEditingController(text: d['time'] ?? ''),
         )
         .toList();
+
+    widget.dayData['destinations'] = dests;
+
+    Future.microtask(() async {
+      await _loadCurrentUserId();
+      await _loadDismissedTips();
+    });
+  }
+
+  Future<void> _loadCurrentUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      currentUserId = prefs.getInt('accountId') ?? 0;
+    });
+  }
+
+  Map<String, double>? getLastDestinationLatLng() {
+    final dests = widget.dayData['destinations'] as List<dynamic>;
+    if (dests.isEmpty) return null;
+
+    final lastDest = dests.last;
+    final lat = lastDest['latitude'] as double?;
+    final lon = lastDest['longitude'] as double?;
+
+    if (lat == null || lon == null || lat == 0 || lon == 0) return null;
+    return {'lat': lat, 'lon': lon};
   }
 
   @override
   void dispose() {
     _dayTitleController.dispose();
-    for (final c in _placeControllers) {
-      c.dispose();
-    }
-    for (final c in _timeControllers) {
-      c.dispose();
-    }
+    for (final c in _placeControllers) c.dispose();
+    for (final c in _timeControllers) c.dispose();
     super.dispose();
   }
 
   void _updateParent() {
+    final originalDests = List<Map<String, dynamic>>.from(
+      (widget.dayData['destinations'] as List).map(
+        (d) => Map<String, dynamic>.from(d),
+      ),
+    );
+
     final updated = {
       'day': widget.dayData['day'],
       'date': widget.dayData['date'],
       'title': _dayTitleController.text,
       'destinations': List.generate(_placeControllers.length, (i) {
+        final original = i < originalDests.length ? originalDests[i] : {};
         return {
           "place": _placeControllers[i].text,
           "time": _timeControllers[i].text,
+          "ecoRating": original['ecoRating'] ?? 0,
+          "establishment_id": original['establishment_id'] ?? 0,
+          "latitude": original['latitude'] ?? 0.0,
+          "longitude": original['longitude'] ?? 0.0,
         };
       }),
     };
+
     widget.onChanged(updated);
   }
 
-  void _addDestination({String? pinnedPlace}) {
-    final now = TimeOfDay.now().format(context);
+  Future<void> _savePinnedDestinationToDB(
+    Map<String, dynamic> pinnedPlace,
+  ) async {
+    if (currentUserId == 0) {
+      await _loadCurrentUserId();
+    }
+
+    final establishmentId = pinnedPlace['establishment_id'];
+    if (currentUserId <= 0 || establishmentId == null) {
+      debugPrint("❌ Skipped saving pin: invalid user or establishment ID.");
+      return;
+    }
+
+    try {
+      debugPrint(
+        "📌 Attempting to pin establishment ID: $establishmentId "
+        "for user ID: $currentUserId",
+      );
+
+      final success = await addNearbyPin(
+        userId: currentUserId,
+        establishmentId: establishmentId,
+      );
+
+      if (success) {
+        debugPrint("✅ Pinned destination saved successfully in database.");
+      } else {
+        debugPrint("⚠️ addNearbyPin() returned false — failed to save pin.");
+      }
+    } catch (e) {
+      debugPrint("❌ Error saving pin: $e");
+    }
+  }
+
+  void _addDestination({Map<String, dynamic>? pinnedPlace}) {
+    if (pinnedPlace == null) return;
+
+    final destinations = List<Map<String, dynamic>>.from(
+      widget.dayData['destinations'].map((d) => Map<String, dynamic>.from(d)),
+    );
+
+    if (destinations.isNotEmpty &&
+        destinations.last['establishment_id'] ==
+            pinnedPlace['establishment_id']) {
+      showCustomSnackBar(
+        context: context,
+        icon: Icons.warning_amber_rounded,
+        message: "You cannot add the same destination consecutively.",
+        alert: true,
+      );
+      return;
+    }
+
+    TimeOfDay now = TimeOfDay.now();
+    String formattedTime = now.format(context);
+
+    if (destinations.isNotEmpty) {
+      final lastTimeString = destinations.last['time'] as String;
+      final lastTime = _parseTimeOfDay(lastTimeString);
+      if (_isEarlier(now, lastTime)) {
+        final adjustedMinutes = lastTime.hour * 60 + lastTime.minute + 1;
+        final adjustedHour = adjustedMinutes ~/ 60;
+        final adjustedMinute = adjustedMinutes % 60;
+        now = TimeOfDay(hour: adjustedHour, minute: adjustedMinute);
+        formattedTime = now.format(context);
+      }
+    }
+
+    if (destinations.length >= 15) {
+      showCustomSnackBar(
+        context: context,
+        icon: Icons.warning_amber_rounded,
+        message: "You can only add up to 15 destinations per day.",
+        warning: true,
+      );
+      return;
+    }
+
+    final newDest = {
+      "place": pinnedPlace['name'] ?? "",
+      "establishment_id": pinnedPlace['establishment_id'] ?? 0,
+      "time": formattedTime,
+      "ecoRating": pinnedPlace['ecoRating'] ?? 0,
+      "latitude": pinnedPlace['latitude'] ?? 0.0,
+      "longitude": pinnedPlace['longitude'] ?? 0.0,
+    };
+
+    destinations.add(newDest);
+
     setState(() {
-      (widget.dayData['destinations'] as List).add({
-        "place": pinnedPlace ?? "",
-        "time": now,
-      });
-      _placeControllers.add(TextEditingController(text: pinnedPlace ?? ""));
-      _timeControllers.add(TextEditingController(text: now));
+      _placeControllers.add(TextEditingController(text: newDest['place']));
+      _timeControllers.add(TextEditingController(text: formattedTime));
+      widget.dayData['destinations'] = destinations;
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateParent());
+
+    _savePinnedDestinationToDB(newDest);
+
     _updateParent();
+  }
+
+  TimeOfDay _parseTimeOfDay(String timeString) {
+    final parts = timeString.split(' ');
+    if (parts.length != 2) return TimeOfDay.now();
+
+    final timeParts = parts[0].split(':');
+    if (timeParts.length != 2) return TimeOfDay.now();
+
+    int hour = int.tryParse(timeParts[0]) ?? 0;
+    final int minute = int.tryParse(timeParts[1]) ?? 0;
+    final period = parts[1].toUpperCase();
+
+    if (period == 'PM' && hour < 12) hour += 12;
+    if (period == 'AM' && hour == 12) hour = 0;
+
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  bool _isEarlier(TimeOfDay a, TimeOfDay b) {
+    return (a.hour < b.hour) || (a.hour == b.hour && a.minute <= b.minute);
   }
 
   void _removeDestination(int idx) {
@@ -918,9 +1139,26 @@ class _TravelDayEditorState extends State<TravelDayEditor> {
   Future<void> _pickTime(int i) async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: _parseTimeOfDay(_timeControllers[i].text),
     );
+
     if (picked != null) {
+      if (i > 0) {
+        final prevTime = _parseTimeOfDay(
+          (widget.dayData['destinations'] as List)[i - 1]['time'],
+        );
+
+        if (_isEarlier(picked, prevTime)) {
+          showCustomSnackBar(
+            context: context,
+            icon: Icons.warning_amber_rounded,
+            message: "Time must be after the previous destination.",
+            alert: true,
+          );
+          return;
+        }
+      }
+
       setState(() {
         final formatted = picked.format(context);
         _timeControllers[i].text = formatted;
@@ -930,116 +1168,364 @@ class _TravelDayEditorState extends State<TravelDayEditor> {
     }
   }
 
+  bool _hasUpdatedAfterSwitch = false;
+
+  // TIP KEY now unique to the destination IDs
+  String tipKey(
+    Map<String, dynamic> first,
+    Map<String, dynamic> second,
+    Map<String, dynamic> third,
+  ) =>
+      "tip_${first['establishment_id']}_${second['establishment_id']}_${third['establishment_id']}";
+
+  Future<void> _updatePinAfterSwitch() async {
+    if (currentUserId <= 0) return;
+
+    final uri = Uri.parse('https://ecoroute-taal.online/updateLastPin.php');
+    try {
+      final response = await http.post(
+        uri,
+        body: {'user_id': currentUserId.toString()},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          debugPrint('Pin updated successfully.');
+        } else {
+          debugPrint('Error updating pin: ${data['message']}');
+        }
+      } else {
+        debugPrint('Failed to reach server. Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dests = widget.dayData['destinations'] as List<dynamic>;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _dayTitleController,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: Color.fromARGB(255, 60, 46, 29),
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Day title (short)',
-                ),
-                onChanged: (_) => _updateParent(),
-              ),
-            ),
-            const SizedBox(width: 10),
-          ],
-        ),
-        const SizedBox(height: 12),
         Column(
-          children: List.generate(dests.length, (i) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: TextFormField(
-                      controller: _placeControllers[i],
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Destination',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (val) {
-                        dests[i]['place'] = val;
-                        _updateParent();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: TextFormField(
-                      style: TextStyle(fontSize: 13),
-                      readOnly: true,
-                      controller: _timeControllers[i],
-                      decoration: const InputDecoration(
-                        labelText: 'Time',
-                        border: OutlineInputBorder(),
-                      ),
-                      onTap: () => _pickTime(i),
-                    ),
-                  ),
-
-                  IconButton(
-                    iconSize: 20,
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _removeDestination(i),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ),
-        SizedBox(height: 15),
-        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Add destination'),
-              // onPressed: _addDestination,
-              onPressed: () {
-                WishlistsBottomPopup.show(context, (pinnedTitle) {
-                  _addDestination(pinnedPlace: pinnedTitle);
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFEDF1EA),
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 14,
-                ),
-              ),
+            const SizedBox(height: 12),
+            Column(
+              children: List.generate(dests.length, (i) {
+                final int ecoRating = dests[i]['ecoRating'] ?? 0;
+                final Color ecoColor = getEcoColor(ecoRating);
+                final Color bgColor = ecoColor.withOpacity(0.15);
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          controller: _placeControllers[i],
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Destination',
+                            filled: true,
+                            fillColor: bgColor,
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: ecoColor,
+                                width: 1.5,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: ecoColor, width: 2),
+                            ),
+                          ),
+                          onChanged: (val) {
+                            dests[i]['place'] = val;
+                            _updateParent();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: _timeControllers[i],
+                          readOnly: true,
+                          style: const TextStyle(fontSize: 13),
+                          decoration: InputDecoration(
+                            labelText: 'Time',
+                            filled: true,
+                            fillColor: bgColor,
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: ecoColor,
+                                width: 1.5,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: ecoColor, width: 2),
+                            ),
+                          ),
+                          onTap: () => _pickTime(i),
+                        ),
+                      ),
+                      IconButton(
+                        iconSize: 20,
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _removeDestination(i),
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ),
-            const SizedBox(width: 12),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  for (final c in _placeControllers) c.dispose();
-                  for (final c in _timeControllers) c.dispose();
-                  _placeControllers.clear();
-                  _timeControllers.clear();
-                  widget.dayData['destinations'].clear();
-                });
-                _updateParent();
-              },
-              child: const Text('Clear'),
+
+            if (dests.length >= 3)
+              for (int i = 0; i < dests.length - 2; i++)
+                Builder(
+                  builder: (context) {
+                    final first = dests[i];
+                    final second = dests[i + 1];
+                    final third = dests[i + 2];
+
+                    if (first['establishment_id'] ==
+                            second['establishment_id'] ||
+                        second['establishment_id'] ==
+                            third['establishment_id'] ||
+                        first['establishment_id'] ==
+                            third['establishment_id']) {
+                      return const SizedBox.shrink();
+                    }
+
+                    double distanceKm(Map a, Map b) {
+                      double lat1 = a['latitude'] ?? 0.0;
+                      double lon1 = a['longitude'] ?? 0.0;
+                      double lat2 = b['latitude'] ?? 0.0;
+                      double lon2 = b['longitude'] ?? 0.0;
+
+                      const r = 6371;
+                      double dLat = (lat2 - lat1) * pi / 180;
+                      double dLon = (lon2 - lon1) * pi / 180;
+                      double aCalc =
+                          sin(dLat / 2) * sin(dLat / 2) +
+                          cos(lat1 * pi / 180) *
+                              cos(lat2 * pi / 180) *
+                              sin(dLon / 2) *
+                              sin(dLon / 2);
+                      double c = 2 * atan2(sqrt(aCalc), sqrt(1 - aCalc));
+                      return r * c;
+                    }
+
+                    final d1d2 = distanceKm(first, second);
+                    final d1d3 = distanceKm(first, third);
+
+                    bool shouldSuggestSwitch = d1d2 > d1d3;
+
+                    final currentTipKey = tipKey(first, second, third);
+                    if (!shouldSuggestSwitch ||
+                        _dismissedTips.contains(currentTipKey)) {
+                      return const SizedBox.shrink();
+                    }
+
+                    bool switched = false;
+
+                    return StatefulBuilder(
+                      builder: (context, setStateSB) {
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 4,
+                            horizontal: 8,
+                          ),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4.0),
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black,
+                                    ),
+                                    children: [
+                                      const TextSpan(text: "Tip: "),
+                                      TextSpan(
+                                        text: third['place'],
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const TextSpan(text: " is closer to "),
+                                      TextSpan(
+                                        text: first['place'],
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const TextSpan(text: " than "),
+                                      TextSpan(
+                                        text: second['place'],
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const TextSpan(text: "."),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (!switched) ...[
+                                    TextButton(
+                                      onPressed: () async {
+                                        setState(() {
+                                          final temp = dests[i + 1];
+                                          dests[i + 1] = dests[i + 2];
+                                          dests[i + 2] = temp;
+
+                                          final tempTime =
+                                              _timeControllers[i + 1].text;
+                                          _timeControllers[i + 1].text =
+                                              _timeControllers[i + 2].text;
+                                          _timeControllers[i + 2].text =
+                                              tempTime;
+
+                                          _placeControllers[i + 1].text =
+                                              dests[i + 1]['place'];
+                                          _placeControllers[i + 2].text =
+                                              dests[i + 2]['place'];
+
+                                          switched = true;
+                                          _updateParent();
+                                        });
+
+                                        if (!_hasUpdatedAfterSwitch &&
+                                            currentUserId > 0) {
+                                          await _updatePinAfterSwitch();
+                                          setState(() {
+                                            _hasUpdatedAfterSwitch = true;
+                                          });
+                                        }
+                                      },
+                                      child: const Text("Switch"),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _dismissedTips.add(currentTipKey);
+                                        });
+                                      },
+                                      child: const Text(
+                                        "Dismiss",
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+                                    ),
+                                  ],
+                                  if (switched)
+                                    TextButton(
+                                      onPressed: () async {
+                                        setState(() {
+                                          final temp = dests[i + 1];
+                                          dests[i + 1] = dests[i + 2];
+                                          dests[i + 2] = temp;
+
+                                          final tempTime =
+                                              _timeControllers[i + 1].text;
+                                          _timeControllers[i + 1].text =
+                                              _timeControllers[i + 2].text;
+                                          _timeControllers[i + 2].text =
+                                              tempTime;
+
+                                          _placeControllers[i + 1].text =
+                                              dests[i + 1]['place'];
+                                          _placeControllers[i + 2].text =
+                                              dests[i + 2]['place'];
+
+                                          switched = false;
+                                          _updateParent();
+                                        });
+
+                                        setState(() {
+                                          _hasUpdatedAfterSwitch = false;
+                                        });
+                                      },
+                                      child: const Text("Undo"),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+
+            const SizedBox(height: 15),
+            Stack(
+              children: [
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add destination'),
+                      onPressed: () {
+                        WishlistsBottomPopup.show(context, (pinnedPlace) {
+                          _addDestination(pinnedPlace: pinnedPlace);
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEDF1EA),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 14,
+                        ),
+                      ),
+                    ),
+                    Spacer(),
+                    if (dests.isNotEmpty)
+                      FloatingBtn(
+                        icon: Icons.auto_awesome,
+                        iconColor: const Color(0xFF64F67A),
+                        auraColor: const Color(0xFFFF9616),
+                        onPressed: () async {
+                          final lastDestinations =
+                              widget.dayData['destinations'] as List<dynamic>;
+
+                          RecommendationBottomPopup.show(context, (
+                            pinnedPlace,
+                          ) {
+                            _addDestination(
+                              pinnedPlace: {
+                                'name': pinnedPlace['name'] ?? 'Unknown',
+                                'establishment_id':
+                                    pinnedPlace['establishment_id'] ?? 0,
+                                'ecoRating': pinnedPlace['ecoRating'] ?? 0,
+                                'latitude': pinnedPlace['latitude'] ?? 0.0,
+                                'longitude': pinnedPlace['longitude'] ?? 0.0,
+                              },
+                            );
+                          });
+                        },
+                      ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),

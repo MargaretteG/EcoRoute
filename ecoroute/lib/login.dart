@@ -16,10 +16,10 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _loginError;
   final _formKey = GlobalKey<FormState>();
   final ApiService _apiService = ApiService();
   final TextEditingController _usernameController = TextEditingController();
-
   final TextEditingController _passwordController = TextEditingController();
 
   Widget _buildTextField(String label) {
@@ -137,7 +137,8 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                   ),
-                  // The rest of your form content (unchanged)
+
+                  // --- FORM SECTION ---
                   Container(
                     color: Colors.white,
                     width: double.infinity,
@@ -156,26 +157,49 @@ class _LoginPageState extends State<LoginPage> {
                                 borderRadius: BorderRadius.circular(5),
                               ),
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _buildTextField('Username'),
                                   const SizedBox(height: 10),
                                   _buildPasswordField(),
+                                  // 👇 Added error text display
+                                  if (_loginError != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Text(
+                                        _loginError!,
+                                        style: const TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
                           ),
                         ),
+
                         const SizedBox(height: 12),
                         LngButton(
                           text: _isLoading ? 'Signing In...' : 'Sign In',
                           isOrange: true,
                           onPressed: () async {
                             if (_formKey.currentState!.validate()) {
+                              setState(() {
+                                _isLoading = true;
+                                _loginError = null; // reset error message
+                              });
+
                               try {
                                 final result = await _apiService.signIn(
                                   username: _usernameController.text.trim(),
                                   password: _passwordController.text.trim(),
                                 );
+
+                                setState(() {
+                                  _isLoading = false;
+                                });
 
                                 if (result['status'] == 'success') {
                                   final userData = result['user'];
@@ -183,29 +207,30 @@ class _LoginPageState extends State<LoginPage> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          MainScreen(userData: result['user']),
+                                          MainScreen(userData: userData),
                                     ),
                                   );
                                 } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result['message'] ?? 'Login failed',
-                                      ),
-                                    ),
-                                  );
+                                  // 👇 Instead of SnackBar, show error below fields
+                                  setState(() {
+                                    _loginError =
+                                        result['message'] ??
+                                        'Invalid username or password';
+                                  });
                                 }
                               } catch (e) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error: ${e.toString()}'),
-                                  ),
-                                );
+                                setState(() {
+                                  _isLoading = false;
+                                  _loginError =
+                                      'Something went wrong. Please try again.';
+                                });
                               }
                             }
                           },
                         ),
                         const SizedBox(height: 15),
+
+                        // --- rest unchanged ---
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 22),
                           child: SizedBox(

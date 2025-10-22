@@ -22,8 +22,11 @@ class _ProfileState extends State<Profile> {
     _postsKey.currentState?.loadUserPosts();
   }
 
+  int followersCount = 0;
+  int followingCount = 0;
+
   void _safeSetState(VoidCallback fn) {
-    if (mounted) { 
+    if (mounted) {
       setState(fn);
     }
   }
@@ -46,13 +49,20 @@ class _ProfileState extends State<Profile> {
       final prefs = await SharedPreferences.getInstance();
       final accountId = prefs.getInt("accountId");
       if (accountId == null) {
-        throw Exception("No accountId saved inn preferences");
+        throw Exception("No accountId saved in preferences");
       }
 
       final userData = await _apiService.fetchProfile(accountId: accountId);
 
+    
+      final followData = await fetchFollowersFollowing(accountId);
+      final followers = followData['followers'] ?? [];
+      final following = followData['following'] ?? [];
+
       _safeSetState(() {
         _user = userData;
+        followersCount = followers.length;
+        followingCount = following.length;
         _loading = false;
       });
     } catch (e) {
@@ -65,7 +75,7 @@ class _ProfileState extends State<Profile> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold( 
+    return Scaffold(
       backgroundColor: const Color(0xFF011901),
       body: SafeArea(
         child: _loading
@@ -125,7 +135,7 @@ class _ProfileState extends State<Profile> {
                                       padding: EdgeInsets.all(2),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
-                                        shape: BoxShape.circle, 
+                                        shape: BoxShape.circle,
                                         border: Border.all(
                                           color: Colors.green,
                                           width: 2,
@@ -176,17 +186,17 @@ class _ProfileState extends State<Profile> {
                                         Column(
                                           children: [
                                             Text(
-                                              '20',
-                                              style: TextStyle(
+                                              followersCount.toString(),
+                                              style: const TextStyle(
                                                 fontSize: 20,
                                                 fontWeight: FontWeight.w900,
                                                 color: Color(0xFF011901),
                                               ),
                                             ),
-                                            Text('Followers'),
+                                            const Text('Followers'),
                                           ],
                                         ),
-                                        SizedBox(width: 15),
+                                        const SizedBox(width: 15),
 
                                         // Vertical Divider
                                         Container(
@@ -195,22 +205,23 @@ class _ProfileState extends State<Profile> {
                                           color: Colors.grey,
                                         ),
 
-                                        SizedBox(width: 15),
+                                        const SizedBox(width: 15),
                                         Column(
                                           children: [
                                             Text(
-                                              '50',
-                                              style: TextStyle(
+                                              followingCount.toString(),
+                                              style: const TextStyle(
                                                 fontSize: 20,
                                                 fontWeight: FontWeight.w900,
                                                 color: Color(0xFF011901),
                                               ),
                                             ),
-                                            Text('Following'),
+                                            const Text('Following'),
                                           ],
                                         ),
                                       ],
                                     ),
+
                                     SizedBox(height: 15),
                                     // Transform.translate(
                                     //   offset: Offset(0, 35),
@@ -277,7 +288,7 @@ class _ProfileState extends State<Profile> {
                           ? "https://ecoroute-taal.online/uploads/profile_pics/${_user!['profilePic']}"
                           : null,
                       userName: _user?['userName'],
-                      onPostSubmitted: _reloadPosts, 
+                      onPostSubmitted: _reloadPosts,
                     ),
                     UserProfilePosts(
                       username: _user?['userName'] ?? "Unknown",

@@ -93,6 +93,7 @@ class CategoryButton extends StatelessWidget {
   final bool isFilled;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool useSheerBackground;
 
   const CategoryButton({
     super.key,
@@ -101,6 +102,7 @@ class CategoryButton extends StatelessWidget {
     required this.isFilled,
     required this.isSelected,
     required this.onTap,
+    this.useSheerBackground = false,
   });
 
   @override
@@ -108,17 +110,27 @@ class CategoryButton extends StatelessWidget {
     final Color orange = const Color(0xFFFF9616);
     final Color green = const Color(0xFF003F0C);
 
+    // Background color logic
     final Color bgColor = isFilled
         ? (isSelected ? orange : green)
-        : Colors.transparent;
+        : (useSheerBackground
+              ? (isSelected
+                    ? Color.fromARGB(162, 255, 150, 22)
+                    : Colors.transparent)
+              : Colors.transparent);
 
+    // Border logic
     final Color borderColor = isFilled
         ? Colors.transparent
-        : (isSelected ? orange : Colors.grey.shade400);
+        : (isSelected
+              ? orange
+              : const Color.fromARGB(255, 255, 255, 255).withOpacity(0.7));
 
     final Color iconTextColor = isFilled
         ? Colors.white
-        : (isSelected ? orange : Colors.white);
+        : (useSheerBackground
+              ? (isSelected ? Colors.white : orange)
+              : (isSelected ? orange : Colors.white));
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
@@ -150,7 +162,6 @@ class CategoryButton extends StatelessWidget {
   }
 }
 
-// Floating Button for recommendations and analytics in Map Page
 class FloatingBtn extends StatefulWidget {
   final IconData icon;
   final Color iconColor;
@@ -172,8 +183,9 @@ class FloatingBtn extends StatefulWidget {
 class _FloatingBtnState extends State<FloatingBtn>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _animation;
- 
+  late Animation<double> _shadowAnimation;
+  late Animation<double> _moveAnimation;
+
   @override
   void initState() {
     super.initState();
@@ -182,9 +194,14 @@ class _FloatingBtnState extends State<FloatingBtn>
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
 
-    _animation = Tween<double>(
+    _shadowAnimation = Tween<double>(
       begin: 6,
       end: 20,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    _moveAnimation = Tween<double>(
+      begin: -5,
+      end: 5,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
@@ -197,24 +214,27 @@ class _FloatingBtnState extends State<FloatingBtn>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _animation,
+      animation: _controller,
       builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: widget.auraColor.withOpacity(1),
-                blurRadius: _animation.value,
-                spreadRadius: _animation.value / 3,
-              ),
-            ],
-          ),
-          child: FloatingActionButton(
-            backgroundColor: const Color(0xFF003F0C),
-            shape: const CircleBorder(),
-            onPressed: widget.onPressed,
-            child: Icon(widget.icon, color: widget.iconColor),
+        return Transform.translate(
+          offset: Offset(0, _moveAnimation.value),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: widget.auraColor.withOpacity(0.7),
+                  blurRadius: _shadowAnimation.value,
+                  spreadRadius: _shadowAnimation.value / 2,
+                ),
+              ],
+            ),
+            child: FloatingActionButton(
+              backgroundColor: const Color(0xFF003F0C),
+              shape: const CircleBorder(),
+              onPressed: widget.onPressed,
+              child: Icon(widget.icon, color: widget.iconColor),
+            ),
           ),
         );
       },

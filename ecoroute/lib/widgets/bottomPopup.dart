@@ -3,6 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ecoroute/widgets/emptyPage.dart';
 import 'package:ecoroute/widgets/wishlistCard.dart';
 import 'package:flutter/material.dart';
+import 'dart:math';
+import 'package:geolocator/geolocator.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class BottomPopup extends StatelessWidget {
   final String category;
@@ -136,11 +140,11 @@ class BottomPopup extends StatelessWidget {
   }
 }
 
-// Bottom Pop Up for Add Travelncontaining Wishlist
+// Bottom Pop Up for Add Travel containing Wishlist
 class WishlistsBottomPopup {
   static Future<void> show(
     BuildContext context,
-    Function(String pinnedTitle) onPinned,
+    Function(Map<String, dynamic> pinnedPlace) onPinned,
   ) async {
     // Fetch favorites dynamically
     final prefs = await SharedPreferences.getInstance();
@@ -253,6 +257,7 @@ class WishlistsBottomPopup {
                             itemBuilder: (context, index) {
                               final spot = favorites[index];
                               return WishlistSpotCard(
+                                establishmentId: spot['establishment_id'] ?? 0,
                                 imagePath:
                                     (spot['images'] != null &&
                                         spot['images'].isNotEmpty)
@@ -262,12 +267,45 @@ class WishlistsBottomPopup {
                                 location: spot['address'] ?? '',
                                 starRating: spot['userRating'] ?? 0.0,
                                 ecoRating: spot['recognitionRating'] ?? 0,
-                                category: spot['category'] ?? 'unknown',
+                                category:
+                                    spot['establishmentCategory'] ?? 'unknown',
                                 type: "addTravel",
                                 onPin: () {
                                   Navigator.pop(context);
-                                  onPinned(spot['establishmentName'] ?? '');
+                                  onPinned({
+                                    'name':
+                                        spot['establishmentName'] ?? 'Unknown',
+                                    'establishment_id':
+                                        int.tryParse(
+                                          spot['establishment_id']
+                                                  ?.toString() ??
+                                              '0',
+                                        ) ??
+                                        0,
+                                    'ecoRating':
+                                        int.tryParse(
+                                          spot['recognitionRating']
+                                                  ?.toString() ??
+                                              '0',
+                                        ) ??
+                                        0,
+                                    'latitude':
+                                        double.tryParse(
+                                          spot['latitude']?.toString() ?? '0',
+                                        ) ??
+                                        0.0,
+                                    'longitude':
+                                        double.tryParse(
+                                          spot['longitude']?.toString() ?? '0',
+                                        ) ??
+                                        0.0,
+                                  });
                                 },
+
+                                // onPin: () {
+                                //   Navigator.pop(context);
+                                //   onPinned(spot['establishmentName'] ?? '');
+                                // },
                               );
                             },
                           ),
@@ -295,50 +333,93 @@ class WishlistsBottomPopup {
   }
 }
 
-//Recommendations Bottom Pop Up
+//Recommendation Pop Up
 class RecommendationBottomPopup {
   static void show(
     BuildContext context,
-    Function(String pinnedTitle) onPinned,
-  ) {
-    // For now static sample data; in future replace this with DB data
-    final List<Map<String, dynamic>> travelWishlist = [
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Taal Basilica",
-        "location": "Taal, Philippines",
-        "starRating": 5.0,
-        "ecoRating": 4,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Chocolate Hills",
-        "location": "Bohol, Philippines",
-        "starRating": 5.0,
-        "ecoRating": 5,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Mayon Volcano",
-        "location": "Albay, Philippines",
-        "starRating": 5.0,
-        "ecoRating": 2,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Mayon Volcano",
-        "location": "Albay, Philippines",
-        "starRating": 2.0,
-        "ecoRating": 1,
-      },
-      {
-        "imagePath": "images/home-photo1-1.jpg",
-        "name": "Mayon Volcano",
-        "location": "Albay, Philippines",
-        "starRating": 5.0,
-        "ecoRating": 3,
-      },
-    ];
+    Function(Map<String, dynamic> pinnedPlace) onPinned, {
+    int? lastPinnedId,
+  }) {
+    double _degreesToRadians(double degrees) => degrees * pi / 180;
+
+
+    // Get user location
+    Future<Position?> getUserLocation() async {
+      bool serviceEnabled;
+      LocationPermission permission;
+
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return null;
+
+      permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return null;
+      }
+
+      if (permission == LocationPermission.deniedForever) return null;
+
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+    }
+
+    // Fetch all establishments and calculate distance from user
+    Future<List<Map<String, dynamic>>> fetchNearbyEstablishments() async {
+      final prefs = await SharedPreferences.getInstance();
+      final int userId = prefs.getInt('accountId') ?? 0;
+      if (userId <= 0) return [];
+
+      final uri = Uri.parse(
+        'https://ecoroute-taal.online/getLastNearbyPin.php?user_id=$userId',
+      );
+
+      try {
+        final response = await http.get(uri).timeout(ApiService.requestTimeout);
+        if (response.statusCode != 200) return [];
+
+        final data = jsonDecode(response.body);
+        if (data['status'] != 'success') return [];
+
+        final List<dynamic> recommendations = data['recommendations'] ?? [];
+
+        return recommendations.map<Map<String, dynamic>>((spot) {
+          // Build main image URL
+          String imageUrl = 'images/image_load.png';
+          if (spot['images'] is List && spot['images'].isNotEmpty) {
+            final firstImage = spot['images'][0];
+            if (firstImage['imageUrl'] != null &&
+                firstImage['imageUrl'].toString().isNotEmpty) {
+              imageUrl =
+                  "https://ecoroute-taal.online/EcoRoute/Includes/Images/tourist-estab/managelisting/${firstImage['imageUrl']}";
+            }
+          }
+
+          // Convert distance from km → meters
+          double distanceMeters = (spot['distance_km'] ?? 0).toDouble() * 1000;
+
+          return {
+            'establishment_id': spot['establishment_id']?.toInt() ?? 0,
+            'establishmentName': spot['establishmentName']?.toString() ?? '',
+            'establishmentCategory':
+                spot['establishmentCategory']?.toString() ?? 'unknown',
+            'address': spot['address']?.toString() ?? '',
+            'latitude': spot['latitude']?.toDouble() ?? 0.0,
+            'longitude': spot['longitude']?.toDouble() ?? 0.0,
+            'userRating': (spot['userRating'] ?? 0).toDouble(),
+            'recognitionRating': spot['recognitionRating']?.toInt() ?? 0,
+            'highlightedDescription':
+                spot['highlightedDescription']?.toString() ?? '',
+            'images': spot['images'] ?? [],
+            'distanceMeters': distanceMeters,
+            'imageUrl': imageUrl,
+          };
+        }).toList();
+      } catch (e) {
+        throw Exception("Network error: ${e.toString()}");
+      }
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -385,72 +466,234 @@ class RecommendationBottomPopup {
                       child: TabBarView(
                         children: [
                           // Nearby recommendations
-                          ListView.builder(
-                            controller: controller, // use the sheet controller
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 8,
-                            ),
-                            itemCount: travelWishlist.length,
-                            itemBuilder: (context, index) {
-                              final spot = travelWishlist[index];
-                              return WishlistSpotCard(
-                                imagePath: spot["imagePath"],
-                                name: spot["name"],
-                                location: spot["location"],
-                                starRating: spot["starRating"],
-                                ecoRating: spot["ecoRating"],
-                                category: "unknown",
-                                type: "addTravel",
-                                onPin: () {
-                                  Navigator.pop(context);
-                                  onPinned(spot["name"]);
-                                },
-                              );
+                          FutureBuilder<List<Map<String, dynamic>>>(
+                            future: fetchNearbyEstablishments(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              } else if (snapshot.hasError) {
+                                return Center(
+                                  child: Text('Error: ${snapshot.error}'),
+                                );
+                              } else if (!snapshot.hasData ||
+                                  snapshot.data!.isEmpty) {
+                                return const Center(
+                                  child: Text('No nearby destinations found.'),
+                                );
+                              } else {
+                                final spots = snapshot.data!;
+                                return ListView.builder(
+                                  controller: controller,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 8,
+                                  ),
+                                  itemCount: spots.length,
+                                  itemBuilder: (context, index) {
+                                    final spot = spots[index];
+                                    double distanceMeters =
+                                        (spot['distanceMeters'] ?? 0)
+                                            .toDouble();
+
+                                    // Determine display value
+                                    String displayDistance;
+                                    double distanceForSorting;
+                                    if (distanceMeters >= 1000) {
+                                      displayDistance =
+                                          "${(distanceMeters / 1000).toStringAsFixed(2)} km";
+                                      distanceForSorting =
+                                          distanceMeters; // sorting still in meters
+                                    } else {
+                                      displayDistance =
+                                          "${distanceMeters.toStringAsFixed(0)} m";
+                                      distanceForSorting = distanceMeters;
+                                    }
+
+                                    return WishlistSpotCard(
+                                      cardType: "nearby",
+                                      distanceMeters: distanceMeters,
+                                      // distanceKm:
+                                      //     double.tryParse(
+                                      //       displayDistance.replaceAll(
+                                      //         RegExp('[^0-9.]'),
+                                      //         '',
+                                      //       ),
+                                      //     ) ??
+                                      //     0,
+                                      establishmentId:
+                                          int.tryParse(
+                                            spot['establishment_id']
+                                                    ?.toString() ??
+                                                '0',
+                                          ) ??
+                                          0,
+                                      imagePath: spot['imageUrl'],
+                                      name: spot['establishmentName'] ?? '',
+                                      location: spot['address'] ?? '',
+                                      starRating:
+                                          double.tryParse(
+                                            spot['userRating']?.toString() ??
+                                                '0',
+                                          ) ??
+                                          0.0,
+                                      ecoRating:
+                                          int.tryParse(
+                                            spot['recognitionRating']
+                                                    ?.toString() ??
+                                                '0',
+                                          ) ??
+                                          0,
+                                      category:
+                                          spot['establishmentCategory'] ??
+                                          'unknown',
+                                      type: "addTravel",
+                                      onPin: () {
+                                        Navigator.pop(context);
+                                        onPinned({
+                                          'name':
+                                              spot['establishmentName'] ??
+                                              'Unknown',
+                                          'establishment_id':
+                                              int.tryParse(
+                                                spot['establishment_id']
+                                                        ?.toString() ??
+                                                    '0',
+                                              ) ??
+                                              0,
+                                          'ecoRating':
+                                              int.tryParse(
+                                                spot['recognitionRating']
+                                                        ?.toString() ??
+                                                    '0',
+                                              ) ??
+                                              0,
+                                          'latitude':
+                                              double.tryParse(
+                                                spot['latitude']?.toString() ??
+                                                    '0',
+                                              ) ??
+                                              0.0,
+                                          'longitude':
+                                              double.tryParse(
+                                                spot['longitude']?.toString() ??
+                                                    '0',
+                                              ) ??
+                                              0.0,
+                                        });
+                                      },
+                                    );
+                                  },
+                                );
+                              }
                             },
                           ),
 
-                          // Popular / Eco Rating recommendations
-                          // ListView(
-                          //   controller: controller,
-                          //   padding: const EdgeInsets.all(16),
-                          //   children: [
-                          //     _buildRecommendationCard(
-                          //       "Banaue Rice Terraces",
-                          //       "Ifugao, Philippines",
-                          //       5,
-                          //       5,
-                          //     ),
-                          //     _buildRecommendationCard(
-                          //       "Palawan Underground River",
-                          //       "Puerto Princesa, Philippines",
-                          //       5,
-                          //       5,
-                          //     ),
-                          //   ],
-                          // ),
-                          ListView.builder(
-                            controller: controller, // use the sheet controller
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 8,
-                            ),
-                            itemCount: travelWishlist.length,
-                            itemBuilder: (context, index) {
-                              final spot = travelWishlist[index];
-                              return WishlistSpotCard(
-                                imagePath: spot["imagePath"],
-                                name: spot["name"],
-                                location: spot["location"],
-                                starRating: spot["starRating"],
-                                ecoRating: spot["ecoRating"],
-                                category: "unknown",
-                                type: "addTravel",
-                                onPin: () {
-                                  Navigator.pop(context);
-                                  onPinned(spot["name"]);
-                                },
-                              );
+                          // Popular recommendations
+                          FutureBuilder<List<Map<String, dynamic>>>(
+                            future: fetchMostPinned(limit: 10),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              } else if (snapshot.hasError) {
+                                return Center(
+                                  child: Text('Error: ${snapshot.error}'),
+                                );
+                              } else if (!snapshot.hasData ||
+                                  snapshot.data!.isEmpty) {
+                                return const Center(
+                                  child: Text('No popular destinations found.'),
+                                );
+                              } else {
+                                final popularSpots = snapshot.data!;
+                                return ListView.builder(
+                                  controller: controller,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 8,
+                                  ),
+                                  itemCount: popularSpots.length,
+                                  itemBuilder: (context, index) {
+                                    final spot = popularSpots[index];
+                                    return WishlistSpotCard(
+                                      cardType: "popular",
+                                      rank: index + 1,
+                                      establishmentId:
+                                          int.tryParse(
+                                            spot['establishment_id'].toString(),
+                                          ) ??
+                                          0,
+                                      imagePath:
+                                          (spot['images'] is List &&
+                                              (spot['images'] as List)
+                                                  .isNotEmpty &&
+                                              (spot['images'][0] is Map &&
+                                                  (spot['images'][0]['imageUrl']
+                                                          ?.toString()
+                                                          .isNotEmpty ??
+                                                      false)))
+                                          ? "https://ecoroute-taal.online/EcoRoute/Includes/Images/tourist-estab/managelisting/${spot['images'][0]['imageUrl']}"
+                                          : 'images/image_load.png',
+                                      name: spot['establishmentName'] ?? '',
+                                      location: spot['address'] ?? '',
+                                      starRating:
+                                          double.tryParse(
+                                            spot['userRating'].toString(),
+                                          ) ??
+                                          0.0,
+                                      ecoRating:
+                                          int.tryParse(
+                                            spot['recognitionRating']
+                                                .toString(),
+                                          ) ??
+                                          0,
+                                      category:
+                                          spot['establishmentCategory'] ??
+                                          'unknown',
+                                      type: "addTravel",
+                                      onPin: () {
+                                        Navigator.pop(context);
+                                        onPinned({
+                                          'name':
+                                              spot['establishmentName'] ??
+                                              'Unknown',
+                                          'establishment_id':
+                                              int.tryParse(
+                                                spot['establishment_id']
+                                                        ?.toString() ??
+                                                    '0',
+                                              ) ??
+                                              0,
+                                          'ecoRating':
+                                              int.tryParse(
+                                                spot['recognitionRating']
+                                                        ?.toString() ??
+                                                    '0',
+                                              ) ??
+                                              0,
+                                          'latitude':
+                                              double.tryParse(
+                                                spot['latitude']?.toString() ??
+                                                    '0',
+                                              ) ??
+                                              0.0,
+                                          'longitude':
+                                              double.tryParse(
+                                                spot['longitude']?.toString() ??
+                                                    '0',
+                                              ) ??
+                                              0.0,
+                                        });
+                                      },
+                                    );
+                                  },
+                                );
+                              }
                             },
                           ),
                         ],
@@ -465,48 +708,6 @@ class RecommendationBottomPopup {
       },
     );
   }
-
-  static Widget _buildRecommendationCard(
-    String name,
-    String location,
-    int starRating,
-    int ecoRating,
-  ) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFF64F67A),
-          child: Icon(Icons.place, color: Colors.black),
-        ),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(location),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(
-                starRating,
-                (i) => const Icon(Icons.star, color: Colors.orange, size: 16),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              "Eco $ecoRating/5",
-              style: const TextStyle(fontSize: 12, color: Colors.green),
-            ),
-          ],
-        ),
-        onTap: () {
-          // Navigator.pop(context);
-          // Later: integrate adding this to destinations
-        },
-      ),
-    );
-  }
 }
 
 //Snackbar
@@ -515,9 +716,17 @@ void showCustomSnackBar({
   required BuildContext context,
   required IconData icon,
   required String message,
-  Color backgroundColor = const Color(0xFF2E9E3F),
+  bool warning = false,
+  bool alert = false,
+  Color backgroundColor = const Color.fromARGB(220, 46, 158, 63),
   int durationSeconds = 3,
 }) {
+  final Color bgColor = warning
+      ? const Color.fromARGB(223, 227, 67, 52)
+      : alert
+      ? const Color.fromARGB(223, 227, 145, 52)
+      : backgroundColor;
+
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Row(
@@ -528,15 +737,16 @@ void showCustomSnackBar({
             child: Text(
               message,
               style: const TextStyle(
-                fontSize: 15,
+                fontSize: 13,
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
+                height: 1,
               ),
             ),
           ),
         ],
       ),
-      backgroundColor: backgroundColor,
+      backgroundColor: bgColor,
       behavior: SnackBarBehavior.floating,
       duration: Duration(seconds: durationSeconds),
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),

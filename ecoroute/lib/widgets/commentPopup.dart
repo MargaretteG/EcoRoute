@@ -116,7 +116,7 @@ class _CommentPopupState extends State<CommentPopup> {
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 100),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 70),
       backgroundColor: Colors.white,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -155,37 +155,54 @@ class _CommentPopupState extends State<CommentPopup> {
           ),
 
           // COMMENTS LIST / LOADING
-          SizedBox(
-            height: 400,
+          Expanded(
             child: _loading
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      FlickerImageLoader(imagePath: "images/21.png"),
-                      Text(
-                        "Loading comments...",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black54,
+                ? SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            FlickerImageLoader(imagePath: "images/21.png"),
+                            const SizedBox(height: 10),
+                            const Text(
+                              "Loading comments...",
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   )
                 : _comments.isEmpty
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.asset("images/21.png", height: 200),
-                      Text(
-                        "No comments yet",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF4B2F34),
+                ? SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset("images/21.png", height: 200),
+                            const SizedBox(height: 10),
+                            const Text(
+                              "No comments yet",
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF4B2F34),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),

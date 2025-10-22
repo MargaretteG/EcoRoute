@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:ecoroute/travelPage/ViewGroupTravel.dart';
 import 'package:ecoroute/widgets/emptyPage.dart';
+import 'package:ecoroute/widgets/imageLoader.dart';
 import 'package:ecoroute/widgets/popup.dart';
 import 'package:ecoroute/widgets/travelContainer.dart';
 import 'package:flutter/material.dart';
@@ -136,7 +137,23 @@ class _TravelGroupsState extends State<TravelGroups> {
                       ),
                     ),
                     child: isLoading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? Column(
+                            children: [
+                              const SizedBox(height: 30),
+                              const FlickerImageLoader(
+                                imagePath: "images/18.png",
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                "Loading Travel Groups...",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          )
                         : travelGroups.isEmpty
                         ? Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -216,7 +233,7 @@ class _TravelGroupsState extends State<TravelGroups> {
                                           );
 
                                           if (confirm == true) {
-                                            _loadGroupTravels(); // refresh list after deletion
+                                            _loadGroupTravels();
                                           }
                                         },
                                       ),

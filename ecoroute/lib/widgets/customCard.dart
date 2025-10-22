@@ -96,7 +96,7 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
       case 5:
         return const Color.fromARGB(255, 0, 215, 7);
       default:
-        return Colors.grey;
+        return Color(0xFF003F0C);
     }
   }
 
@@ -130,7 +130,7 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
           MaterialPageRoute(
             builder: (context) => DestinationInfoPage(
               imagePath: widget.imagePath,
-              name: widget.name,
+              name: widget.name, 
               location: widget.location,
               description: widget.description,
               highlights: widget.highlightDescription,
@@ -171,9 +171,18 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
                   AspectRatio(
                     aspectRatio: 20 / 9,
                     child: Image.network(
-                      widget.imagePath,
+                      widget.imagePath.isNotEmpty
+                          ? widget.imagePath
+                          : 'images/image_load.png',
                       fit: BoxFit.cover,
                       width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Image.asset(
+                          'images/image_load.png',
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        );
+                      },
                     ),
                   ),
                   Container(
@@ -218,6 +227,7 @@ class _TouristSpotCardState extends State<TouristSpotCard> {
                                         color: Color.fromARGB(255, 4, 46, 4),
                                         fontWeight: FontWeight.bold,
                                         fontSize: 15,
+                                        height: 1,
                                       ),
                                     ),
                                     const SizedBox(height: 2),

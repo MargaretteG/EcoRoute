@@ -1,4 +1,5 @@
 import 'package:ecoroute/widgets/emptyPage.dart';
+import 'package:ecoroute/widgets/imageLoader.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/customTravelheader.dart';
 import 'package:ecoroute/widgets/wishlistCard.dart';
@@ -46,7 +47,7 @@ class _WishlistsContentState extends State<WishlistsContent> {
       // Fetch user's favorite IDs
       final favoriteIds = await fetchUserFavorites(userId);
 
-      // Debug prints
+      // Debug prints 
       debugPrint("✅ User ID: $userId");
       debugPrint("✅ Fetched favorite IDs: $favoriteIds");
       debugPrint("✅ Establishments fetched: ${establishments.length}");
@@ -100,7 +101,23 @@ class _WishlistsContentState extends State<WishlistsContent> {
                       ),
                     ),
                     child: isLoading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? Column(
+                            children: [
+                              const SizedBox(height: 30),
+                              const FlickerImageLoader(
+                                imagePath: "images/16.png",
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                "Loading Wishlists...",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          )
                         : favoriteEstablishments.isEmpty
                         ? Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -125,6 +142,8 @@ class _WishlistsContentState extends State<WishlistsContent> {
                             child: Column(
                               children: favoriteEstablishments.map((spot) {
                                 return WishlistSpotCard(
+                                  establishmentId:
+                                      spot['establishment_id'] ?? 0,
                                   imagePath:
                                       (spot['images'] != null &&
                                           spot['images'].isNotEmpty)

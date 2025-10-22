@@ -1,4 +1,5 @@
 import 'package:ecoroute/api_service.dart';
+import 'package:ecoroute/promotionPage/tasteTaal.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ecoroute/widgets/customHeaderHome.dart';
 import 'package:ecoroute/widgets/promoCard.dart';
@@ -18,7 +19,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final homeCategories = [
     {'text': 'All', 'icon': Icons.eco, 'isFilled': false},
     {'text': 'Eco Park', 'icon': Icons.park, 'isFilled': false},
-    {'text': 'Amusement Park', 'icon': Icons.local_activity, 'isFilled': false},
+    // {'text': 'Amusement Park', 'icon': Icons.local_activity, 'isFilled': false},
     {'text': 'Cultural Cite', 'icon': Icons.museum, 'isFilled': false},
     {'text': 'Church', 'icon': Icons.church, 'isFilled': false},
     {'text': 'Restaurant', 'icon': Icons.restaurant, 'isFilled': false},
@@ -322,7 +323,14 @@ class _MyHomePageState extends State<MyHomePage> {
                               buttonText: "Explore",
                               imagePath: "images/promo-delicacy.png",
                               startColor: const Color(0xFF62ED7A),
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => TasteTaalPage(),
+                                  ),
+                                );
+                              },
                             ),
                             PromoCard(
                               title: "Cultural Gems",

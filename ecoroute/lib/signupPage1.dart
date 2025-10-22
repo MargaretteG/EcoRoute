@@ -1,4 +1,5 @@
 import 'package:ecoroute/homePage.dart';
+import 'package:ecoroute/login.dart';
 import 'package:ecoroute/main_screen.dart';
 import 'package:ecoroute/signupPage2.dart';
 import 'package:flutter/material.dart';
@@ -8,26 +9,8 @@ import 'package:country_picker/country_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ecoroute/api_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
-
-// CONTROLLERS & VARIABLES
-// final _usernameController = TextEditingController();
-// final _passwordController = TextEditingController();
-// final _firstNameController = TextEditingController();
-// final _lastNameController = TextEditingController();
-// final _addressController = TextEditingController();
-// final _emailController = TextEditingController();
-// final _phoneController = TextEditingController();
-// final _dobController = TextEditingController();
-
-// bool _obscurePassword = true;
-// String nationality = '';
-// String gender = 'Male';
-// String id = 'Passport';
-// XFile? _selectedImage;
-
-// final List<String> genderOptions = ['Male', 'Female', 'Other'];
-// final List<String> idoptions = ['Passport', 'Driver\'s License', 'National ID'];
 
 class SignUpPage1 extends StatefulWidget {
   const SignUpPage1({super.key});
@@ -92,14 +75,68 @@ class _SignUpPage1State extends State<SignUpPage1> {
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
+
+    // Show a dialog to let the user choose between camera or gallery
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take a Photo'),
+                onTap: () async {
+                  Navigator.pop(context); // Close the bottom sheet
+                  final status = await Permission.camera.request();
+                  if (status.isGranted) {
+                    final XFile? pickedFile = await picker.pickImage(
+                      source: ImageSource.camera,
+                    );
+                    if (pickedFile != null) {
+                      setState(() {
+                        _selectedImage = pickedFile;
+                      });
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Camera permission denied')),
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final status = await Permission.photos.request();
+                  if (status.isGranted) {
+                    final XFile? pickedFile = await picker.pickImage(
+                      source: ImageSource.gallery,
+                    );
+                    if (pickedFile != null) {
+                      setState(() {
+                        _selectedImage = pickedFile;
+                      });
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Gallery permission denied'),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
-    if (pickedFile != null) {
-      setState(() {
-        _selectedImage = pickedFile;
-      });
-    }
   }
 
   Future<void> _submitSignUp() async {
@@ -116,6 +153,8 @@ class _SignUpPage1State extends State<SignUpPage1> {
 
     try {
       final api = ApiService();
+
+      // Pass validId and imageId only if they are provided
       final result = await api.signUp(
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
@@ -127,6 +166,10 @@ class _SignUpPage1State extends State<SignUpPage1> {
         gender: gender,
         username: _usernameController.text.trim(),
         password: _passwordController.text,
+        validId: (_selectedImage != null && id.isNotEmpty) ? id : null,
+        imageId: _selectedImage != null
+            ? File(_selectedImage!.path)
+            : null, 
       );
 
       if (!mounted) return;
@@ -135,15 +178,21 @@ class _SignUpPage1State extends State<SignUpPage1> {
       if (statusValue == 'success' ||
           statusValue == 'ok' ||
           statusValue == 'true') {
-        final userData = result['user'];
+        // Navigate to login page after successful registration
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) =>
-                MainScreen(userData: userData), // pass from backend
-          ),
+          MaterialPageRoute(builder: (_) => LoginPage()),
+        );
+      } else {
+        // Show error message from API
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Sign up failed')),
         );
       }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Network error: ${e.toString()}')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -175,6 +224,9 @@ class _SignUpPage1State extends State<SignUpPage1> {
             decoration ??
             InputDecoration(
               labelText: label,
+              labelStyle: const TextStyle(fontSize: 10, color: Colors.grey),
+              hintText: label,
+              hintStyle: const TextStyle(fontSize: 10, color: Colors.grey),
               border: const OutlineInputBorder(),
             ),
         validator: (value) =>
@@ -255,66 +307,63 @@ class _SignUpPage1State extends State<SignUpPage1> {
                             widthFactor: 0.95,
                             child: Column(
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: requiredTextField(
-                                        controller: _usernameController,
-                                        label: 'Create Username',
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          height: 1,
-                                        ),
-                                        decoration: const InputDecoration(
-                                          labelText: 'Create Username',
-                                          border: OutlineInputBorder(),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: requiredTextField(
-                                        label: 'Create Password',
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          height: 1,
-                                        ),
-                                        controller: _passwordController,
-                                        decoration: InputDecoration(
-                                          labelText: 'Create Password',
-                                          border: const OutlineInputBorder(),
-                                          suffixIcon: IconButton(
-                                            icon: Icon(
-                                              _obscurePassword
-                                                  ? Icons.visibility_off
-                                                  : Icons.visibility,
-                                            ),
-                                            onPressed: () {
-                                              setState(() {
-                                                _obscurePassword =
-                                                    !_obscurePassword;
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                        obscureText: _obscurePassword,
-                                      ),
-                                    ),
-                                  ],
+                                requiredTextField(
+                                  controller: _usernameController,
+                                  label: 'Create Username',
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    height: 1,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Create Username',
+                                    labelStyle: TextStyle(fontSize: 13),
+                                    border: OutlineInputBorder(),
+                                  ),
                                 ),
-                                const SizedBox(height: 25),
+
+                                const SizedBox(height: 20),
+
+                                requiredTextField(
+                                  label: 'Create Password',
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    height: 1,
+                                  ),
+                                  controller: _passwordController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Create Password',
+                                    labelStyle: TextStyle(fontSize: 13),
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscurePassword = !_obscurePassword;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  obscureText: _obscurePassword,
+                                ),
+
+                                const SizedBox(height: 20),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: requiredTextField(
                                         label: 'First Name:',
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 13.5,
                                           height: 1,
                                         ),
                                         controller: _firstNameController,
                                         decoration: const InputDecoration(
                                           labelText: 'First Name',
+                                          labelStyle: TextStyle(fontSize: 13),
                                           border: OutlineInputBorder(),
                                         ),
                                       ),
@@ -324,57 +373,61 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                       child: requiredTextField(
                                         label: 'Last Name',
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 13.5,
                                           height: 1,
                                         ),
                                         controller: _lastNameController,
                                         decoration: const InputDecoration(
                                           labelText: 'Last Name',
+                                          labelStyle: TextStyle(fontSize: 13),
                                           border: OutlineInputBorder(),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 25),
+                                const SizedBox(height: 20),
                                 requiredTextField(
                                   label: 'Address',
                                   style: const TextStyle(
-                                    fontSize: 15,
+                                    fontSize: 13.5,
                                     height: 1,
                                   ),
                                   controller: _addressController,
                                   decoration: const InputDecoration(
                                     labelText: 'Address',
+                                    labelStyle: TextStyle(fontSize: 13),
                                     border: OutlineInputBorder(),
                                   ),
                                 ),
-                                const SizedBox(height: 25),
+                                const SizedBox(height: 20),
                                 requiredTextField(
                                   label: 'Email Address',
                                   style: const TextStyle(
-                                    fontSize: 15,
+                                    fontSize: 13.5,
                                     height: 1,
                                   ),
                                   controller: _emailController,
                                   decoration: const InputDecoration(
                                     labelText: 'Email Address',
+                                    labelStyle: TextStyle(fontSize: 13),
                                     border: OutlineInputBorder(),
                                   ),
                                 ),
-                                const SizedBox(height: 25),
+                                const SizedBox(height: 20),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: requiredTextField(
                                         label: 'Phone Number',
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 13.5,
                                           height: 1,
                                         ),
                                         controller: _phoneController,
                                         decoration: const InputDecoration(
                                           labelText: 'Phone Number',
+                                          labelStyle: TextStyle(fontSize: 13),
                                           border: OutlineInputBorder(),
                                         ),
                                       ),
@@ -383,12 +436,13 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                     Expanded(
                                       child: TextFormField(
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 13.5,
                                           height: 1,
                                         ),
                                         readOnly: true,
                                         decoration: const InputDecoration(
                                           labelText: 'Nationality',
+                                          labelStyle: TextStyle(fontSize: 13),
                                           border: OutlineInputBorder(),
                                           suffixIcon: Icon(
                                             Icons.arrow_drop_down,
@@ -417,19 +471,21 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 25),
+                                const SizedBox(height: 20),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: requiredTextField(
                                         label: 'Date of Birth',
+
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 13.5,
                                           height: 1,
                                         ),
                                         controller: _dobController,
                                         readOnly: true,
                                         decoration: InputDecoration(
+                                          labelStyle: TextStyle(fontSize: 13),
                                           labelText: 'Date of Birth',
                                           border: const OutlineInputBorder(),
                                           suffixIcon: IconButton(
@@ -461,7 +517,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                     Expanded(
                                       child: DropdownButtonFormField<String>(
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 13.5,
                                           height: 1,
                                           color: Colors.black,
                                           fontFamily: 'BricolageGrotesque',
@@ -488,19 +544,20 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                             : null,
                                         decoration: const InputDecoration(
                                           labelText: 'Gender',
+                                          labelStyle: TextStyle(fontSize: 13),
                                           border: OutlineInputBorder(),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 25),
+                                const SizedBox(height: 20),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: DropdownButtonFormField<String>(
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 13.5,
                                           height: 1,
                                           color: Colors.black,
                                           fontFamily: 'BricolageGrotesque',
@@ -512,8 +569,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                             value: idValue,
                                             child: Text(
                                               idValue,
-                                              overflow: TextOverflow
-                                                  .ellipsis, // prevent text from going out of bounds
+                                              overflow: TextOverflow.ellipsis,
                                               maxLines: 1,
                                             ),
                                           );
@@ -525,6 +581,7 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                         },
                                         decoration: const InputDecoration(
                                           labelText: 'Valid ID',
+                                          labelStyle: TextStyle(fontSize: 13),
                                           border: OutlineInputBorder(),
                                         ),
                                       ),
@@ -535,13 +592,12 @@ class _SignUpPage1State extends State<SignUpPage1> {
                                         onTap: _pickImage,
                                         child: InputDecorator(
                                           decoration: const InputDecoration(
-                                            labelText: 'Upload Photo',
+                                            labelText: 'Upload Valid ID',
+                                            labelStyle: TextStyle(fontSize: 13),
                                             border: OutlineInputBorder(),
                                           ),
                                           child: _selectedImage == null
-                                              ? const Text(
-                                                  'Tap to select image',
-                                                )
+                                              ? const Text('Upload Valid ID')
                                               : Image.file(
                                                   File(_selectedImage!.path),
                                                   height: 100,

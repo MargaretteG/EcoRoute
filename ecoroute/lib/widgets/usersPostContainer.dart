@@ -1,11 +1,35 @@
 import 'package:ecoroute/api_service.dart';
+import 'package:ecoroute/widgets/bottomPopup.dart';
 import 'package:ecoroute/widgets/commentPopup.dart';
 import 'package:ecoroute/widgets/imageLoader.dart';
+import 'package:ecoroute/widgets/profilePopup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:ecoroute/widgets/imageLoader.dart';
 import 'package:intl/intl.dart';
+
+class FollowedUsers {
+  FollowedUsers._privateConstructor();
+  static final FollowedUsers instance = FollowedUsers._privateConstructor();
+
+  Set<int> followingIds = {};
+
+  Future<void> loadFollowing(int accountId) async {
+    try {
+      final followData = await fetchFollowersFollowing(accountId);
+      followingIds = followData['following']!
+          .map<int>((u) => u['user_id'] as int)
+          .toSet();
+    } catch (e) {
+      debugPrint("Failed to fetch following: $e");
+    }
+  }
+
+  bool isFollowing(int userId) => followingIds.contains(userId);
+
+  void follow(int userId) => followingIds.add(userId);
+  void unfollow(int userId) => followingIds.remove(userId);
+}
 
 class CommunityPost extends StatefulWidget {
   final int communityPostId;
@@ -17,6 +41,8 @@ class CommunityPost extends StatefulWidget {
   final List<String> images;
   final bool isFollowing;
   final int? likesCount;
+  final int? commentsCount;
+  final String postType;
 
   const CommunityPost({
     Key? key,
@@ -29,6 +55,8 @@ class CommunityPost extends StatefulWidget {
     required this.images,
     this.isFollowing = false,
     this.likesCount,
+    this.commentsCount,
+    this.postType = 'default',
   }) : super(key: key);
 
   @override
@@ -41,19 +69,39 @@ class _CommunityPostState extends State<CommunityPost> {
   int currentPage = 0;
   late PageController _pageController;
   late int likesCount;
+
   @override
   void initState() {
     super.initState();
-    isFollowing = widget.isFollowing;
     likesCount = widget.likesCount ?? 0;
     _pageController = PageController();
     _checkIfLiked();
+    _initFollowingState();
+  }
+
+  Future<void> _initFollowingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final loggedInUserId = prefs.getInt('accountId') ?? 0;
+
+    // Load following list once if empty
+    if (FollowedUsers.instance.followingIds.isEmpty) {
+      await FollowedUsers.instance.loadFollowing(loggedInUserId);
+    }
+
+    setState(() {
+      isFollowing = FollowedUsers.instance.isFollowing(widget.userId);
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<int> _getLoggedInUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('accountId') ?? 0;
   }
 
   String _formatDate(String dateString) {
@@ -121,10 +169,25 @@ class _CommunityPostState extends State<CommunityPost> {
                 ),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundImage: NetworkImage(widget.profilePicUrl),
+                    GestureDetector(
+                      onTap: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        final loggedInUserId = prefs.getInt('accountId') ?? 0;
+
+                        if (loggedInUserId != widget.userId) {
+                          showDialog(
+                            context: context,
+                            builder: (context) =>
+                                MiniProfilePopup(userId: widget.userId),
+                          );
+                        }
+                      },
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundImage: NetworkImage(widget.profilePicUrl),
+                      ),
                     ),
+
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -149,23 +212,90 @@ class _CommunityPostState extends State<CommunityPost> {
                       ),
                     ),
                     PopupMenuButton<String>(
-                      onSelected: (value) {
-                        setState(() {
-                          if (value == 'follow') {
-                            isFollowing = true;
-                          } else if (value == 'unfollow') {
-                            isFollowing = false;
+                      onSelected: (value) async {
+                        final prefs = await SharedPreferences.getInstance();
+                        final loggedInUserId = prefs.getInt('accountId') ?? 0;
+
+                        if (value == 'delete') {
+                          debugPrint('Deleting post ${widget.communityPostId}');
+                        } else if (value == 'follow') {
+                          try {
+                            await followUser(
+                              followerId: loggedInUserId,
+                              followingId: widget.userId,
+                            );
+
+                            setState(() => isFollowing = true);
+                            FollowedUsers.instance.follow(widget.userId);
+
+                            showCustomSnackBar(
+                              context: context,
+                              icon: Icons.check_circle_rounded,
+                              message: "You now followed ${widget.username}!",
+                            );
+                          } catch (e) {
+                            showCustomSnackBar(
+                              context: context,
+                              icon: Icons.error_rounded,
+                              message: "Failed to follow: $e",
+                            );
                           }
-                        });
+                        } else if (value == 'unfollow') {
+                          try {
+                            await unfollowUser(
+                              followerId: loggedInUserId,
+                              followingId: widget.userId,
+                            );
+
+                            setState(() => isFollowing = false);
+                            FollowedUsers.instance.unfollow(widget.userId);
+
+                            showCustomSnackBar(
+                              context: context,
+                              icon: Icons.check_circle_rounded,
+                              message: "You unfollowed ${widget.username}.",
+                            );
+                          } catch (e) {
+                            showCustomSnackBar(
+                              context: context,
+                              icon: Icons.error_rounded,
+                              message: "Failed to unfollow: $e",
+                            );
+                          }
+                        }
                       },
-                      itemBuilder: (BuildContext context) {
-                        return [
-                          PopupMenuItem(
-                            value: isFollowing ? 'unfollow' : 'follow',
-                            child: Text(isFollowing ? "Unfollow" : "Follow"),
+                      itemBuilder: (BuildContext context) => [
+                        PopupMenuItem<String>(
+                          value: isFollowing ? 'unfollow' : 'follow',
+                          enabled: true,
+                          child: FutureBuilder<int>(
+                            future: _getLoggedInUserId(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const Text(
+                                  "Loading...",
+                                  style: TextStyle(color: Colors.black),
+                                );
+                              }
+
+                              final loggedInUserId = snapshot.data!;
+                              final isOwner = loggedInUserId == widget.userId;
+
+                              if (isOwner) {
+                                return const Text(
+                                  "",
+                                  style: TextStyle(color: Colors.black),
+                                );
+                              } else {
+                                return Text(
+                                  isFollowing ? "Unfollow" : "Follow",
+                                  style: const TextStyle(color: Colors.black),
+                                );
+                              }
+                            },
                           ),
-                        ];
-                      },
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -207,10 +337,10 @@ class _CommunityPostState extends State<CommunityPost> {
                             width: double.infinity,
                             loadingBuilder: (context, child, loadingProgress) {
                               if (loadingProgress == null) return child;
-                              return const FlickerPlaceholder(); // ✅ works now
+                              return const FlickerPlaceholder();
                             },
                             errorBuilder: (context, error, stackTrace) {
-                              return const FlickerPlaceholder(); // ✅ works here too
+                              return const FlickerPlaceholder();
                             },
                           ),
                         );

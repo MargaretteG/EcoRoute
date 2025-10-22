@@ -168,13 +168,23 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                 pinned: true,
 
                 title: Padding(
-                  padding: EdgeInsetsGeometry.only(bottom: 5),
-                  child: Text(
-                    widget.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      fontSize: 15,
+                  padding: EdgeInsetsGeometry.only(
+                    bottom: 5,
+                    left: 50,
+                    right: 50,
+                  ),
+                  child: Flexible(
+                    child: Text(
+                      widget.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 15,
+                        height: 1,
+                      ),
+                      softWrap: true,
+                      overflow: TextOverflow.visible,
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),
@@ -320,13 +330,14 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                   Row(
                                     children: [
                                       Expanded(
-                                        flex: 8, // 80%
+                                        flex: 8,
                                         child: Text(
                                           widget.name,
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w900,
                                             color: Colors.black87,
                                             fontSize: 20,
+                                            height: 1,
                                           ),
                                           overflow: TextOverflow.visible,
                                           softWrap: true,
@@ -638,105 +649,84 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                 ],
                               ),
 
-                              const SizedBox(height: 8),
+                              // Description
+                              SizedBox(height: 8),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 0,
-                                ), // outer padding
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    // Measure if text exceeds 5 lines
-                                    final textSpan = TextSpan(
-                                      text: widget.description,
-                                      style: const TextStyle(
-                                        fontSize: 13.5,
-                                        color: Colors.black87,
-                                        height: 1.4,
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    color: const Color.fromARGB(
+                                      255,
+                                      255,
+                                      242,
+                                      224,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        spreadRadius: 0.3,
+                                        blurRadius: 6,
+                                        offset: const Offset(2, 3),
                                       ),
-                                    );
-                                    final textPainter = TextPainter(
-                                      text: textSpan,
-                                      maxLines: 5,
-                                      textDirection: TextDirection.ltr,
-                                    )..layout(maxWidth: constraints.maxWidth);
-
-                                    final isOverflowing =
-                                        textPainter.didExceedMaxLines;
-
-                                    return Container(
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        color: const Color.fromARGB(
-                                          255,
-                                          255,
-                                          242,
-                                          224,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.2,
-                                            ),
-                                            spreadRadius: 0.3,
-                                            blurRadius: 6,
-                                            offset: const Offset(2, 3),
+                                    ],
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          widget.description,
+                                          maxLines: _isExpandeddesc ? null : 5,
+                                          overflow: _isExpandeddesc
+                                              ? TextOverflow.visible
+                                              : TextOverflow.ellipsis,
+                                          textAlign: TextAlign.start,
+                                          style: const TextStyle(
+                                            fontSize: 13.5,
+                                            color: Colors.black87,
+                                            height: 1.4,
                                           ),
-                                        ],
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              widget.description,
-                                              maxLines: _isExpandeddesc
-                                                  ? null
-                                                  : 5,
-                                              overflow: _isExpandeddesc
-                                                  ? TextOverflow.visible
-                                                  : TextOverflow.ellipsis,
-                                              textAlign: TextAlign
-                                                  .start, // not justified
-                                              style: const TextStyle(
-                                                fontSize: 13.5,
-                                                color: Colors.black87,
-                                                height: 1.4,
+                                        ),
+
+                                        // "See more / See less"
+                                        if (widget.description
+                                                    .split('\n')
+                                                    .length >
+                                                5 ||
+                                            widget.description.length >
+                                                150) // simple check for overflow
+                                          GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _isExpandeddesc =
+                                                    !_isExpandeddesc;
+                                              });
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 6,
                                               ),
-                                            ),
-                                            if (isOverflowing)
-                                              GestureDetector(
-                                                onTap: () {
-                                                  setState(() {
-                                                    _isExpandeddesc =
-                                                        !_isExpandeddesc;
-                                                  });
-                                                },
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 6,
-                                                      ),
-                                                  child: Text(
-                                                    _isExpandeddesc
-                                                        ? "See less"
-                                                        : "See more",
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Colors.orange,
-                                                    ),
-                                                  ),
+                                              child: Text(
+                                                _isExpandeddesc
+                                                    ? "See less"
+                                                    : "See more",
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.orange,
                                                 ),
                                               ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
 
@@ -883,7 +873,7 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                         ),
                         SizedBox(height: 5),
                         // for Restaurant
-                        if (widget.category == 'restaurant')
+                        if (widget.category == 'Restaurant')
                           Column(
                             children: [
                               SizedBox(height: 20),
@@ -934,7 +924,7 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                             ],
                           ),
 
-                        if (widget.category == 'hotel')
+                        if (widget.category == 'Hotel')
                           Column(
                             children: [
                               SizedBox(height: 20),
@@ -1245,12 +1235,17 @@ class _DestinationInfoPageState extends State<DestinationInfoPage> {
                                   ),
 
                                   // Subtitle text
-                                  Text(
-                                    "${widget.name} FAQ",
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF011901),
+                                  Flexible(
+                                    child: Text(
+                                      "${widget.name} FAQ",
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF011901),
+                                        height: 1,
+                                      ),
+                                      softWrap: true,
+                                      overflow: TextOverflow.visible,
                                     ),
                                   ),
                                 ],

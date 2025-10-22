@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 
 class ApiService {
   static const String baseUrl = "https://ecoroute-taal.online/";
@@ -39,6 +40,8 @@ class ApiService {
     required String gender,
     required String username,
     required String password,
+    String? validId, // optional
+    File? imageId, // optional
   }) async {
     final uri = Uri.parse("${baseUrl}signUpValidation.php");
 
@@ -55,11 +58,24 @@ class ApiService {
         ..fields['username'] = username
         ..fields['password'] = password;
 
+      // Only include validId if provided
+      if (validId != null && validId.isNotEmpty) {
+        request.fields['validId'] = validId;
+      }
+
+      // Only include imageId if provided
+      if (imageId != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('imageId', imageId.path),
+        );
+      }
+
       final streamedResponse = await request.send().timeout(
         requestTimeoutUploadImage,
       );
 
       final responseString = await streamedResponse.stream.bytesToString();
+
       if (streamedResponse.statusCode == 200) {
         return jsonDecode(responseString);
       } else {
@@ -342,6 +358,7 @@ Future<List<Map<String, dynamic>>> getAllCommunityPosts() async {
           'postImages': images,
           'dateCreated': post['dateCreated'] ?? '',
           'likesCount': post['likesCount'] ?? 0,
+          'commentCount': post['commentCount'] ?? 0,
         };
       }).toList();
     } else {
@@ -476,16 +493,129 @@ Future<List<Map<String, dynamic>>> fetchCommunityPostComments({
   }
 }
 
-// Add Travel Plan
-Future<Map<String, dynamic>> addTravelPlan({
+// Follow a user
+Future<String> followUser({
+  required int followerId,
+  required int followingId,
+}) async {
+  final uri = Uri.parse("${ApiService.baseUrl}followUser.php");
+
+  try {
+    final response = await http
+        .post(
+          uri,
+          body: {
+            'follower_id': followerId.toString(),
+            'following_id': followingId.toString(),
+          },
+        )
+        .timeout(ApiService.requestTimeout);
+
+    if (response.statusCode == 200) {
+      print('Follow response body: ${response.body}');
+      final data = jsonDecode(response.body);
+
+      if (data['status'] == 'success') {
+        return 'followed';
+      } else {
+        throw Exception(data['message'] ?? 'Failed to follow user');
+      }
+    } else {
+      throw Exception("HTTP ${response.statusCode}: ${response.body}");
+    }
+  } catch (e) {
+    throw Exception("Network error: ${e.toString()}");
+  }
+}
+
+// Unfollow a user
+Future<String> unfollowUser({
+  required int followerId,
+  required int followingId,
+}) async {
+  final uri = Uri.parse("${ApiService.baseUrl}unfollowUser.php");
+
+  try {
+    final response = await http
+        .post(
+          uri,
+          body: {
+            'follower_id': followerId.toString(),
+            'following_id': followingId.toString(),
+          },
+        )
+        .timeout(ApiService.requestTimeout);
+
+    if (response.statusCode == 200) {
+      print('Unfollow response body: ${response.body}');
+      final data = jsonDecode(response.body);
+
+      if (data['status'] == 'success') {
+        return 'unfollowed';
+      } else {
+        throw Exception(data['message'] ?? 'Failed to unfollow user');
+      }
+    } else {
+      throw Exception("HTTP ${response.statusCode}: ${response.body}");
+    }
+  } catch (e) {
+    throw Exception("Network error: ${e.toString()}");
+  }
+}
+
+// Fetch followers and following
+Future<Map<String, List<Map<String, dynamic>>>> fetchFollowersFollowing(
+  int userId,
+) async {
+  final uri = Uri.parse("${ApiService.baseUrl}fetchFollowersFollowing.php");
+
+  try {
+    final response = await http
+        .post(uri, body: {'user_id': userId.toString()})
+        .timeout(ApiService.requestTimeout);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      if (data['status'] == 'success') {
+        List<Map<String, dynamic>> followers = [];
+        List<Map<String, dynamic>> following = [];
+
+        if (data['followers'] != null) {
+          followers = List<Map<String, dynamic>>.from(data['followers']);
+        }
+
+        if (data['following'] != null) {
+          following = List<Map<String, dynamic>>.from(data['following']);
+        }
+
+        return {'followers': followers, 'following': following};
+      } else {
+        throw Exception(
+          data['message'] ?? 'Failed to fetch followers/following',
+        );
+      }
+    } else {
+      throw Exception("HTTP ${response.statusCode}: ${response.body}");
+    }
+  } catch (e) {
+    throw Exception("Network error: ${e.toString()}");
+  }
+}
+
+// //Add travel plan
+Future<Map<String, dynamic>> addTravelPlanWithDestination({
   required int accountId,
   required String travelTitle,
   required String travelDescription,
   required String travelStartDate,
   required String travelNumDays,
   required String customColor,
+  required List<Map<String, dynamic>> destinations,
 }) async {
-  final uri = Uri.parse("${ApiService.baseUrl}addTravelPlan.php");
+  final uri = Uri.parse(
+    "${ApiService.baseUrl}addTravelPlanwithDestination.php",
+  );
 
   try {
     var request = http.MultipartRequest('POST', uri)
@@ -493,17 +623,15 @@ Future<Map<String, dynamic>> addTravelPlan({
       ..fields['travelTitle'] = travelTitle
       ..fields['travelDescription'] = travelDescription
       ..fields['travelStartDate'] = travelStartDate
-      ..fields['travelNumdays'] = travelNumDays
-      ..fields['customColor'] = customColor;
+      ..fields['travelNumDays'] = travelNumDays
+      ..fields['customColor'] = customColor
+      ..fields['destinations'] = jsonEncode(destinations);
 
-    final streamedResponse = await request.send().timeout(
-      ApiService.requestTimeout,
-    );
+    final streamedResponse = await request.send();
     final responseString = await streamedResponse.stream.bytesToString();
 
     if (streamedResponse.statusCode == 200) {
-      final data = jsonDecode(responseString);
-      return data;
+      return jsonDecode(responseString);
     } else {
       throw Exception("HTTP ${streamedResponse.statusCode}: $responseString");
     }
@@ -512,7 +640,7 @@ Future<Map<String, dynamic>> addTravelPlan({
   }
 }
 
-// Fetch Travel Plans
+//fetch Travel plan
 Future<List<Map<String, dynamic>>> fetchTravelPlan({
   required int accountId,
 }) async {
@@ -536,6 +664,16 @@ Future<List<Map<String, dynamic>>> fetchTravelPlan({
             'travelStartDate': plan['travelStartDate'] ?? '',
             'travelNumDays': plan['travelNumDays'] ?? '',
             'customColor': plan['customColor'] ?? '',
+            'destinations': (plan['destinations'] as List<dynamic>? ?? [])
+                .map<Map<String, dynamic>>((dest) {
+                  return {
+                    'destination_id': dest['destination_id'],
+                    'establishment_id': dest['establishment_id'],
+                    'destinationTime': dest['destinationTime'],
+                    'dayNumber': dest['dayNumber'] ?? 1,
+                  };
+                })
+                .toList(),
           };
         }).toList();
       } else if (data['status'] == 'empty') {
@@ -594,7 +732,7 @@ Future<bool> deleteTravelPlan(int travelId) async {
 //   return data['success'] ?? false;
 // }
 
-// Add Group Travel Plan
+// Add Group Travel Plan with destinations
 Future<Map<String, dynamic>> addGroupTravel({
   required int accountId,
   required String groupTravelTitle,
@@ -602,6 +740,7 @@ Future<Map<String, dynamic>> addGroupTravel({
   required String groupTravelStartDate,
   required String groupTravelNumDays,
   required List<Map<String, String>> groupTravelMembers,
+  required List<Map<String, dynamic>> destinations, // ✅ Added
   required String customColor,
 }) async {
   final uri = Uri.parse("${ApiService.baseUrl}addGroupTravel.php");
@@ -614,11 +753,12 @@ Future<Map<String, dynamic>> addGroupTravel({
       ..fields['groupTravelStartDate'] = groupTravelStartDate
       ..fields['groupTravelNumDays'] = groupTravelNumDays
       ..fields['groupTravelMembers'] = jsonEncode(groupTravelMembers)
-      ..fields['customColor'] = customColor;
-
+      ..fields['customColor'] = customColor
+      ..fields['destinations'] = jsonEncode(destinations);
     final streamedResponse = await request.send().timeout(
       ApiService.requestTimeout,
     );
+
     final responseString = await streamedResponse.stream.bytesToString();
 
     if (streamedResponse.statusCode == 200) {
@@ -632,7 +772,6 @@ Future<Map<String, dynamic>> addGroupTravel({
   }
 }
 
-// Fetch Group Travel Plans
 Future<List<Map<String, dynamic>>> fetchGroupTravelPlan({
   required int accountId,
 }) async {
@@ -657,12 +796,24 @@ Future<List<Map<String, dynamic>>> fetchGroupTravelPlan({
             'groupTravelNumDays': plan['groupTravelNumDays'] ?? '',
             'groupTravelMembers': plan['groupTravelMembers'] ?? [],
             'customColor': plan['customColor'] ?? '',
+            'destinations': (plan['destinations'] as List<dynamic>? ?? [])
+                .map<Map<String, dynamic>>((dest) {
+                  return {
+                    'destination_id': dest['destination_id'],
+                    'establishment_id': dest['establishment_id'],
+                    'destinationTime': dest['destinationTime'],
+                    'dayNumber': dest['dayNumber'] ?? 1,
+                  };
+                })
+                .toList(),
           };
         }).toList();
       } else if (data['status'] == 'empty') {
         return [];
       } else {
-        throw Exception(data['message'] ?? 'Failed to fetch travel plans');
+        throw Exception(
+          data['message'] ?? 'Failed to fetch group travel plans',
+        );
       }
     } else {
       throw Exception("HTTP ${response.statusCode}: ${response.body}");
@@ -700,7 +851,7 @@ Future<bool> deleteGroupTravel(int groupTravelId) async {
     return false;
   }
 }
-
+// fetch establishments
 Future<List<Map<String, dynamic>>> fetchAllEstablishments() async {
   final uri = Uri.parse("${ApiService.baseUrl}getEstablishmentDetails.php");
 
@@ -756,6 +907,11 @@ Future<List<Map<String, dynamic>>> fetchAllEstablishments() async {
             recognitionRating = int.tryParse(recognitionRatingRaw) ?? 0;
           }
 
+          // safely parse latitude and longitude
+          double latitude = double.tryParse(est['latitude'].toString()) ?? 0.0;
+          double longitude =
+              double.tryParse(est['longitude'].toString()) ?? 0.0;
+
           // Parse userRatings (feedbacks) from PHP
           final userRatings = (est['userRatings'] as List<dynamic>? ?? []).map((
             rating,
@@ -780,13 +936,15 @@ Future<List<Map<String, dynamic>>> fetchAllEstablishments() async {
             'userRating': userRating,
             'listingDescription': est['listingDescription'] ?? '',
             'highlightedDescription': est['highlightedDescription'] ?? '',
+            'latitude': latitude,
+            'longitude': longitude,
             'images': (est['images'] as List<dynamic>? ?? []).map((img) {
               return {
                 'imageUrl': img['imageUrl'] ?? '',
                 'imageDescription': img['imageDescription'] ?? '',
               };
             }).toList(),
-            'userRatings': userRatings, // <--- added
+            'userRatings': userRatings,
           };
         }).toList();
       } else {
@@ -797,6 +955,80 @@ Future<List<Map<String, dynamic>>> fetchAllEstablishments() async {
     }
   } catch (e) {
     throw Exception("Network error: ${e.toString()}");
+  }
+}
+
+//Nearby Add Pin
+Future<bool> addNearbyPin({
+  required int userId,
+  required int establishmentId,
+}) async {
+  final uri = Uri.parse("${ApiService.baseUrl}addNearbyPin.php");
+
+  try {
+    final response = await http
+        .post(
+          uri,
+          body: {
+            'user_id': userId.toString(),
+            'establishment_id': establishmentId.toString(),
+          },
+        )
+        .timeout(ApiService.requestTimeout);
+
+    print("Response: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['status'] == 'success';
+    } else {
+      throw Exception('HTTP ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception("Network error: ${e.toString()}");
+  }
+}
+
+//Nearby Fetch Pin
+Future<Map<String, dynamic>?> fetchLastPinnedLocation(int userId) async {
+  final uri = Uri.parse(
+    "${ApiService.baseUrl}getLastNearbyPin.php?user_id=$userId",
+  );
+
+  try {
+    final response = await http.get(uri).timeout(ApiService.requestTimeout);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      if (data['status'] == 'success') {
+        // Extract the last pinned establishment
+        final lastPin = data['last_pin'];
+
+        // Extract all recommended (nearby) establishments
+        final List<dynamic> recommendations = data['recommendations'] ?? [];
+
+        // Combine both into one map for convenience
+        return {
+          'last_pin': {
+            'establishment_id': lastPin['establishment_id'],
+            'latitude': lastPin['latitude'],
+            'longitude': lastPin['longitude'],
+          },
+          'recommendations': recommendations.map((item) {
+            return {
+              'establishment_id': item['establishment_id'],
+              'latitude': item['latitude'],
+              'longitude': item['longitude'],
+              'distance_km': item['distance_km'],
+            };
+          }).toList(),
+        };
+      }
+    }
+    return null;
+  } catch (e) {
+    print("Error fetching nearby pins: $e");
+    return null;
   }
 }
 
@@ -922,4 +1154,130 @@ Future<Map<String, dynamic>> addTravelReview({
   } catch (e) {
     throw Exception("Network error: ${e.toString()}");
   }
+}
+
+//Fetch Most Pinned
+Future<List<Map<String, dynamic>>> fetchMostPinned({int limit = 10}) async {
+  final uri = Uri.parse("${ApiService.baseUrl}mostPinned.php?limit=$limit");
+
+  try {
+    final response = await http.get(uri).timeout(ApiService.requestTimeout);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      if (data['status'] == 'success' && data['mostPinned'] != null) {
+        // Return the list of establishments with pinCount
+        return List<Map<String, dynamic>>.from(data['mostPinned']);
+      } else {
+        return [];
+      }
+    } else {
+      throw Exception("HTTP ${response.statusCode}: ${response.body}");
+    }
+  } catch (e) {
+    throw Exception("Network error: ${e.toString()}");
+  }
+}
+
+//Fetching of travel routes in maps page
+Future<Map<String, dynamic>?> fetchTravelRoute({required int travelId}) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final accountId = prefs.getInt('accountId');
+    if (accountId == null) return null;
+
+    final url = Uri.parse(
+      "${ApiService.baseUrl}fetchTravelRoutes.php?accountId=$accountId",
+    );
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        final routes = data['routes'] as List<dynamic>;
+        final selected = routes.firstWhere(
+          (r) => r['addTravel_id'] == travelId,
+          orElse: () => null,
+        );
+
+        if (selected != null) {
+          // Make sure nested values are converted properly
+          for (var day in selected['days']) {
+            for (var dest in day['destinations']) {
+              dest['latitude'] =
+                  double.tryParse(dest['latitude'].toString()) ?? 0.0;
+              dest['longitude'] =
+                  double.tryParse(dest['longitude'].toString()) ?? 0.0;
+              dest['recognitionRating'] =
+                  int.tryParse(dest['recognitionRating'].toString()) ?? 0;
+              dest['establishmentCategory'] =
+                  dest['establishmentCategory'] ?? 'All';
+            }
+          }
+          return selected;
+        }
+      }
+    }
+  } catch (e) {
+    throw Exception("Error fetching travel route: $e");
+  }
+  return null;
+}
+
+//Google Route
+
+Future<List<gmaps.LatLng>> getGoogleDirections({
+  required gmaps.LatLng origin,
+  required gmaps.LatLng destination,
+  List<String>? waypoints,
+}) async {
+  const String apiKey = "AIzaSyDDkOZ87G-Zi9aT5PMOoujlfuOY58YErCU";
+  final String waypointsParam = waypoints != null && waypoints.isNotEmpty
+      ? "&waypoints=${waypoints.join('|')}"
+      : "";
+
+  final url =
+      "https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}$waypointsParam&key=$apiKey";
+
+  final response = await http.get(Uri.parse(url));
+  if (response.statusCode == 200) {
+    final data = json.decode(response.body);
+    if ((data['routes'] as List).isNotEmpty) {
+      final points = data['routes'][0]['overview_polyline']['points'];
+      return decodePolyline(points);
+    }
+  }
+  return [];
+}
+
+// Decode polyline into LatLng list
+List<gmaps.LatLng> decodePolyline(String encoded) {
+  List<gmaps.LatLng> polyline = [];
+  int index = 0, len = encoded.length;
+  int lat = 0, lng = 0;
+
+  while (index < len) {
+    int b, shift = 0, result = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      result |= (b & 0x1F) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      result |= (b & 0x1F) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
+
+    polyline.add(gmaps.LatLng(lat / 1e5, lng / 1e5));
+  }
+  return polyline;
 }

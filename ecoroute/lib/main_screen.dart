@@ -11,7 +11,7 @@ import 'package:ecoroute/widgets/bottomNavBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MainScreen extends StatefulWidget {
-  final Map<String, dynamic>? userData; 
+  final Map<String, dynamic>? userData;
 
   const MainScreen({super.key, this.userData});
 

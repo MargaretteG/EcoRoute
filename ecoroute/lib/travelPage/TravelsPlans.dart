@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:ecoroute/forms/AddTravel.dart';
 import 'package:ecoroute/travelPage/ViewTravelplan.dart';
+import 'package:ecoroute/widgets/imageLoader.dart';
 import 'package:flutter/material.dart';
 import 'package:ecoroute/widgets/popup.dart';
 import 'package:ecoroute/widgets/travelContainer.dart';
@@ -37,7 +38,7 @@ class _TravelPlansState extends State<TravelPlans> {
     _safeSetState(() => isLoading = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance(); 
+      final prefs = await SharedPreferences.getInstance();
       final accountId = prefs.getInt('accountId') ?? 0;
 
       if (accountId == 0) {
@@ -128,7 +129,23 @@ class _TravelPlansState extends State<TravelPlans> {
                     ),
 
                     child: isLoading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? Column(
+                            children: [
+                              const SizedBox(height: 30),
+                              const FlickerImageLoader(
+                                imagePath: "images/19.png",
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                "Loading Travel PLans...",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          )
                         : travelPlans.isEmpty
                         ? Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -213,7 +230,7 @@ class _TravelPlansState extends State<TravelPlans> {
                                       ),
                                     ],
                                   );
-                                }).toList(),
+                                }).toList(), 
                               ),
                               SizedBox(height: 100),
                             ],

@@ -4,7 +4,7 @@ import 'package:ecoroute/widgets/customTopCategory.dart';
 import 'package:ecoroute/community/local.dart';
 import 'package:ecoroute/community/following.dart';
 import 'package:ecoroute/api_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart'; 
 
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key});

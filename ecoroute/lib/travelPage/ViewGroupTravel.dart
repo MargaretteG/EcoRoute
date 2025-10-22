@@ -31,56 +31,122 @@ class _ViewGroupTravelState extends State<ViewGroupTravel> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final accountId = prefs.getInt('accountId') ?? 0;
-
       if (accountId == 0) throw Exception("No accountId found");
+
+      // Fetch all establishments for mapping
+      final establishments = await fetchAllEstablishments();
+      final estMap = {for (var e in establishments) e['establishment_id']: e};
 
       final uri = Uri.parse(
         "${ApiService.baseUrl}fetchGroupTravel.php?accountId=$accountId",
       );
       final response = await http.get(uri).timeout(ApiService.requestTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      if (response.statusCode != 200)
+        throw Exception("HTTP ${response.statusCode}");
 
-        if (data['status'] == 'success') {
-          final List<dynamic> plans = data['data'] ?? [];
+      final data = jsonDecode(response.body);
+      if (data['status'] != 'success')
+        throw Exception(data['message'] ?? 'Failed');
 
-          final foundPlan = plans.firstWhere(
-            (plan) =>
-                plan['groupTravel_id'].toString() ==
-                widget.groupTravelId.toString(),
-            orElse: () => null,
-          );
+      final List<dynamic> plans = data['data'] ?? [];
 
-          if (foundPlan != null) {
-            // Parse members (list or JSON string)
-            dynamic membersData = foundPlan['groupTravelMembers'];
-            List<Map<String, dynamic>> parsedMembers = [];
+      // Find the specific group travel
+      final foundPlan = plans.firstWhere(
+        (plan) =>
+            plan['groupTravel_id'].toString() ==
+            widget.groupTravelId.toString(),
+        orElse: () => null,
+      );
 
-            if (membersData is String) {
-              try {
-                parsedMembers = List<Map<String, dynamic>>.from(
-                  jsonDecode(membersData),
-                );
-              } catch (_) {}
-            } else if (membersData is List) {
-              parsedMembers = membersData
-                  .map((m) => Map<String, dynamic>.from(m))
-                  .toList();
-            }
-
-            setState(() {
-              travelPlan = foundPlan;
-              members = parsedMembers;
-              isLoading = false;
-            });
-          } else {
-            setState(() => isLoading = false);
-          }
-        }
+      if (foundPlan == null) {
+        setState(() => isLoading = false);
+        return;
       }
+
+      // Parse members
+      dynamic membersData = foundPlan['groupTravelMembers'];
+      List<Map<String, dynamic>> parsedMembers = [];
+      if (membersData is String) {
+        try {
+          parsedMembers = List<Map<String, dynamic>>.from(
+            jsonDecode(membersData),
+          );
+        } catch (_) {}
+      } else if (membersData is List) {
+        parsedMembers = membersData
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+      }
+
+      // Parse destinations and build itinerary like ViewTravel
+      final startDate =
+          DateTime.tryParse(foundPlan['groupTravelStartDate'] ?? '') ??
+          DateTime.now();
+      Map<int, List<Map<String, String>>> itinerary = {};
+
+      for (var dest in foundPlan['destinations'] ?? []) {
+        int dayNumber = dest['dayNumber'] ?? 1;
+        final estId = int.tryParse(dest['establishment_id'].toString()) ?? 0;
+        final estData = estMap[estId];
+        final estName = estData?['establishmentName'] ?? 'Unknown';
+        final recognitionRating =
+            estData?['recognitionRating']?.toString() ?? '0';
+        final ecoRating = estData?['userRating']?.toString() ?? '0';
+
+        // Format destination time
+        String timeStr = '';
+        if (dest['destinationTime'] != null &&
+            dest['destinationTime'].isNotEmpty) {
+          try {
+            final timeParts = dest['destinationTime'].split(':');
+            int hour = int.parse(timeParts[0]);
+            int minute = int.parse(timeParts[1]);
+            final dt = DateTime(
+              startDate.year,
+              startDate.month,
+              startDate.day,
+              hour,
+              minute,
+            );
+            timeStr = DateFormat("hh:mm a").format(dt);
+          } catch (e) {
+            timeStr = DateFormat("hh:mm a").format(startDate);
+          }
+        } else {
+          timeStr = DateFormat("hh:mm a").format(startDate);
+        }
+
+        if (!itinerary.containsKey(dayNumber)) itinerary[dayNumber] = [];
+
+        itinerary[dayNumber]!.add({
+          "time": timeStr,
+          "destination": estName,
+          "recognitionRating": recognitionRating,
+          "ecoRating": ecoRating,
+        });
+      }
+
+      // Sort each day's destinations by time
+      for (var day in itinerary.keys) {
+        itinerary[day]!.sort((a, b) {
+          final t1 = DateFormat("hh:mm a").parse(a["time"]!);
+          final t2 = DateFormat("hh:mm a").parse(b["time"]!);
+          return t1.compareTo(t2);
+        });
+      }
+
+      setState(() {
+        travelPlan = foundPlan;
+        members = parsedMembers;
+        sampleItinerary.clear();
+        sampleItinerary.addAll(
+          itinerary,
+        ); // assuming you have sampleItinerary map
+        isLoading = false;
+      });
     } catch (e) {
-      print("Error fetching details: $e");
+      print("Error fetching group travel details: $e");
       setState(() => isLoading = false);
     }
   }
@@ -156,7 +222,7 @@ class _ViewGroupTravelState extends State<ViewGroupTravel> {
   }
 
   Widget _buildItineraryList(Color bgColor) {
-    final dayData = sampleItinerary[selectedDay] ?? [];
+    final dayDestinations = sampleItinerary[selectedDay] ?? [];
 
     return Container(
       decoration: BoxDecoration(
@@ -179,7 +245,10 @@ class _ViewGroupTravelState extends State<ViewGroupTravel> {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
-          ...dayData.map((entry) {
+          ...dayDestinations.map((dest) {
+            final time = dest['time'] ?? '';
+            final name = dest['destination'] ?? 'Unknown';
+
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
@@ -196,7 +265,7 @@ class _ViewGroupTravelState extends State<ViewGroupTravel> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    entry["time"]!,
+                    time,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -204,10 +273,7 @@ class _ViewGroupTravelState extends State<ViewGroupTravel> {
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: Text(
-                      entry["destination"]!,
-                      style: const TextStyle(fontSize: 15),
-                    ),
+                    child: Text(name, style: const TextStyle(fontSize: 15)),
                   ),
                 ],
               ),
@@ -370,8 +436,7 @@ class _ViewGroupTravelState extends State<ViewGroupTravel> {
                               builder: (context) => GroupChatPage(
                                 groupName: title,
                                 bgColor: bgColor,
-                                members:
-                                    members, 
+                                members: members,
                               ),
                             ),
                           );
@@ -441,7 +506,7 @@ class _ViewGroupTravelState extends State<ViewGroupTravel> {
                         ),
                       ),
 
-                      // TITLE + DESC
+                      // TITLE + DESCRIPTION
                       Container(
                         decoration: BoxDecoration(
                           color: getLighterColor(bgColor),
@@ -468,12 +533,13 @@ class _ViewGroupTravelState extends State<ViewGroupTravel> {
                                       bgColor,
                                     ).withOpacity(0.7),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.pin_drop_rounded,
                                     size: 22,
                                     color: Colors.white,
                                   ),
                                 ),
+
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(

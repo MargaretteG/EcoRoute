@@ -1,9 +1,11 @@
 import 'package:ecoroute/forms/AddGroup.dart';
 import 'package:ecoroute/forms/AddTravel.dart';
 import 'package:flutter/material.dart';
+import 'package:ecoroute/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PopUp extends StatelessWidget {
-  final String title; 
+  final String title;
   final IconData headerIcon;
   final String description;
   final bool hasTextField;
@@ -230,9 +232,8 @@ class _SuccessPopupState extends State<SuccessPopup> {
   }
 }
 
-// pop up for travel plans
 class AddTravelPopup extends StatefulWidget {
-  final Function(Map<String, dynamic>) onConfirm; // pass data back
+  final Function(Map<String, dynamic>) onConfirm;
 
   const AddTravelPopup({super.key, required this.onConfirm});
 
@@ -246,6 +247,7 @@ class _AddTravelPopupState extends State<AddTravelPopup> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _daysController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController();
 
   DateTime? _selectedDate;
 
@@ -259,6 +261,8 @@ class _AddTravelPopupState extends State<AddTravelPopup> {
     if (pickedDate != null) {
       setState(() {
         _selectedDate = pickedDate;
+        _dateController.text =
+            "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
       });
     }
   }
@@ -271,11 +275,11 @@ class _AddTravelPopupState extends State<AddTravelPopup> {
       backgroundColor: Colors.white,
       child: Form(
         key: _formKey,
-        child: SingleChildScrollView(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.75, // fixed height
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // HEADER
+              // 🔹 HEADER stays fixed
               Container(
                 decoration: const BoxDecoration(
                   color: Color(0xFF011901),
@@ -318,147 +322,94 @@ class _AddTravelPopupState extends State<AddTravelPopup> {
                 ),
               ),
 
-              // BODY
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 20, 18, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
-                    TextFormField(
-                      controller: _titleController,
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? "Travel title is required"
-                          : null,
-                      decoration: InputDecoration(
-                        labelText: "Travel Title",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Description
-                    TextFormField(
-                      controller: _descriptionController,
-                      maxLines: 3,
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? "Travel description is required"
-                          : null,
-                      decoration: InputDecoration(
-                        labelText: "Travel Description",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Date
-                    // Date
-                    FormField<DateTime>(
-                      validator: (value) {
-                        if (_selectedDate == null) {
-                          return "Date is required";
-                        }
-                        return null;
-                      },
-                      builder: (field) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          GestureDetector(
-                            onTap: _pickDate,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 14,
-                                horizontal: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: field.hasError
-                                      ? Colors.red
-                                      : const Color(0xFFCED4DA),
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.calendar_today,
-                                    size: 20,
-                                    color: Color(0xFF777777),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    _selectedDate != null
-                                        ? "${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}"
-                                        : "Pick a start date",
-                                    style: TextStyle(
-                                      color: _selectedDate != null
-                                          ? Colors.black87
-                                          : const Color(0xFF777777),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+              // 🔹 BODY (scrollable)
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title
+                      TextFormField(
+                        controller: _titleController,
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? "Travel title is required"
+                            : null,
+                        decoration: InputDecoration(
+                          labelText: "Travel Title",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          if (field.hasError)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6, left: 4),
-                              child: Text(
-                                field.errorText!,
-                                style: const TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-
-                    // if (_selectedDate == null)
-                    //   const Padding(
-                    //     padding: EdgeInsets.only(top: 6, left: 4),
-                    //     child: Text(
-                    //       "Date is required",
-                    //       style: TextStyle(color: Colors.red, fontSize: 12),
-                    //     ),
-                    //   ),
-                    const SizedBox(height: 15),
-
-                    // Number of Days
-                    TextFormField(
-                      controller: _daysController,
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return "Number of days is required";
-                        }
-                        final days = int.tryParse(value);
-                        if (days == null || days <= 0) {
-                          return "Enter a valid number greater than 0";
-                        }
-                        return null;
-                      },
-                      decoration: InputDecoration(
-                        labelText: "Number of Days",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 15),
+
+                      // Description
+                      TextFormField(
+                        controller: _descriptionController,
+                        maxLines: 3,
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? "Travel description is required"
+                            : null,
+                        decoration: InputDecoration(
+                          labelText: "Travel Description",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+
+                      // 🔹 Start Date (copied style from AddTravelGroupPopup)
+                      TextFormField(
+                        controller: _dateController,
+                        readOnly: true,
+                        onTap: _pickDate,
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? "Date is required"
+                            : null,
+                        decoration: InputDecoration(
+                          labelText: "Start Date",
+                          suffixIcon: const Icon(Icons.calendar_today),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+
+                      // Number of Days
+                      TextFormField(
+                        controller: _daysController,
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return "Number of days is required";
+                          }
+                          final days = int.tryParse(value);
+                          if (days == null || days <= 0) {
+                            return "Enter a valid number greater than 0";
+                          }
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          labelText: "Number of Days",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
-              // BUTTONS
-              Padding(
+              // 🔹 FOOTER stays fixed
+              Container(
+                color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -487,16 +438,15 @@ class _AddTravelPopupState extends State<AddTravelPopup> {
                     ),
                     const SizedBox(width: 10),
 
-                    // Plan Now 
+                    // Plan Now
                     ElevatedButton(
                       onPressed: () {
-                        if (_formKey.currentState!.validate() &&
-                            _selectedDate != null) {
+                        if (_formKey.currentState!.validate()) {
                           final data = {
                             "title": _titleController.text,
                             "description": _descriptionController.text,
                             "date": _selectedDate,
-                            "days": int.tryParse(_daysController.text) ?? 0, 
+                            "days": int.tryParse(_daysController.text) ?? 0,
                           };
                           Navigator.pop(context);
                           Navigator.push(
@@ -553,6 +503,9 @@ class AddTravelGroupPopup extends StatefulWidget {
 class _AddTravelGroupPopupState extends State<AddTravelGroupPopup> {
   final _formKey = GlobalKey<FormState>();
 
+  List<Map<String, String>> _following = [];
+  bool _loadingFollowing = true;
+
   final TextEditingController _groupNameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
@@ -561,18 +514,10 @@ class _AddTravelGroupPopupState extends State<AddTravelGroupPopup> {
 
   DateTime? _selectedDate;
 
-  // Fake data: list of people the creator follows
-  final List<Map<String, String>> _following = [
-    {"name": "Alex Johnson", "avatar": "https://i.pravatar.cc/150?img=1"},
-    {"name": "aMaria Gomez", "avatar": "https://i.pravatar.cc/150?img=2"},
-    {"name": "aJohn Smith", "avatar": "https://i.pravatar.cc/150?img=3"},
-    {"name": "aSophie Chen", "avatar": "https://i.pravatar.cc/150?img=4"},
-  ];
-
   final List<Map<String, String>> _selectedUsers = [];
 
   void _addUser(Map<String, String> user) {
-    if (!_selectedUsers.contains(user)) {
+    if (!_selectedUsers.any((u) => u['id'] == user['id'])) {
       setState(() => _selectedUsers.add(user));
     }
     _userSearchController.clear();
@@ -600,6 +545,52 @@ class _AddTravelGroupPopupState extends State<AddTravelGroupPopup> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fetchFollowing();
+  }
+
+  Future<void> _fetchFollowing() async {
+    setState(() => _loadingFollowing = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final loggedInId = prefs.getInt('accountId') ?? 0;
+      debugPrint("Logged in user ID: $loggedInId");
+
+      if (loggedInId == 0) {
+        throw Exception("User not logged in");
+      }
+
+      final followingData = await fetchFollowersFollowing(loggedInId);
+      debugPrint("Following API raw data: ${followingData['following']}");
+
+      final followingList = (followingData['following'] as List? ?? [])
+          .map<Map<String, String>>(
+            (u) => {
+              'id': (u['user_id'] ?? '').toString(),
+              'name': (u['username'] ?? 'Unknown').toString(),
+              'avatar':
+                  (u['profile_pic'] != null &&
+                      u['profile_pic'].toString().isNotEmpty)
+                  ? u['profile_pic'].toString()
+                  : "https://ecoroute-taal.online/images/default_profile.png",
+            },
+          )
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _following = followingList;
+        _loadingFollowing = false;
+      });
+    } catch (e) {
+      setState(() => _loadingFollowing = false);
+      debugPrint("Failed to fetch following: $e");
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -608,11 +599,10 @@ class _AddTravelGroupPopupState extends State<AddTravelGroupPopup> {
       child: Form(
         key: _formKey,
         child: SizedBox(
-          height:
-              MediaQuery.of(context).size.height * 0.75, // set dialog height
+          height: MediaQuery.of(context).size.height * 0.75,
           child: Column(
             children: [
-              // HEADER (fixed top)
+              // HEADER
               Container(
                 decoration: const BoxDecoration(
                   color: Color(0xFF011901),
@@ -734,24 +724,51 @@ class _AddTravelGroupPopupState extends State<AddTravelGroupPopup> {
                       const SizedBox(height: 15),
 
                       // Add People
-                      TextField(
-                        controller: _userSearchController,
-                        decoration: InputDecoration(
-                          labelText: "Add People",
-                          suffixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.person_add),
+                          label: const Text("Add Members"),
+                          onPressed: () async {
+                            await showDialog(
+                              context: context,
+                              builder: (_) => AddMemberPopup(
+                                following: _following,
+                                existingMembers:
+                                    _selectedUsers, // already added users
+                                onConfirm: (selected) {
+                                  setState(() {
+                                    // Add only new users
+                                    for (var user in selected) {
+                                      if (!_selectedUsers.any(
+                                        (u) => u['id'] == user['id'],
+                                      )) {
+                                        _selectedUsers.add(user);
+                                      }
+                                    }
+                                  });
+                                },
+                              ),
+                            );
+                          },
                         ),
-                        onChanged: (value) => setState(() {}),
                       ),
 
                       // Dropdown
                       Builder(
                         builder: (context) {
-                          if (_userSearchController.text.isEmpty) {
-                            return const SizedBox();
+                          if (_loadingFollowing) {
+                            return const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: Text(
+                                "Loading your following...",
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            );
                           }
+
+                          if (_userSearchController.text.isEmpty)
+                            return const SizedBox();
 
                           final filtered = _following
                               .where(
@@ -934,6 +951,240 @@ class _AddTravelGroupPopupState extends State<AddTravelGroupPopup> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// Add new Member Group Travel (Merged Design + Correct ID Selection)
+class AddMemberPopup extends StatefulWidget {
+  final List<Map<String, String>>
+  following; // {"id":..., "name":..., "avatar":...}
+  final List<Map<String, String>> existingMembers; // Already added members
+  final Function(List<Map<String, String>> selectedMembers) onConfirm;
+
+  const AddMemberPopup({
+    super.key,
+    required this.following,
+    required this.existingMembers,
+    required this.onConfirm,
+  });
+
+  @override
+  State<AddMemberPopup> createState() => _AddMemberPopupState();
+}
+
+class _AddMemberPopupState extends State<AddMemberPopup> {
+  List<Map<String, String>> _selectedMembers = [];
+
+  void _toggleMember(Map<String, String> user) {
+    if (widget.existingMembers.any((u) => u['id'] == user['id'])) return;
+
+    setState(() {
+      if (_selectedMembers.any((u) => u['id'] == user['id'])) {
+        _selectedMembers.removeWhere((u) => u['id'] == user['id']);
+      } else {
+        _selectedMembers.add(user);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      insetPadding: const EdgeInsets.all(24),
+      backgroundColor: Colors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // HEADER
+          Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF011901),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.person_add_alt_1_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    "Add Members",
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w100,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.close, color: Colors.white, size: 22),
+                ),
+              ],
+            ),
+          ),
+
+          // BODY
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 8),
+            child: widget.following.isEmpty
+                ? const Text(
+                    "You are not following anyone yet.",
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.4,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF4B2F34),
+                    ),
+                  )
+                : SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      itemCount: widget.following.length,
+                      itemBuilder: (context, index) {
+                        final user = widget.following[index];
+                        final isAlreadyMember = widget.existingMembers.any(
+                          (u) => u['id'] == user['id'],
+                        );
+                        final isSelected = _selectedMembers.any(
+                          (u) => u['id'] == user['id'],
+                        );
+
+                        return GestureDetector(
+                          onTap: () => _toggleMember(user),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isAlreadyMember
+                                  ? Colors.grey.shade300
+                                  : isSelected
+                                  ? const Color(0xFFFFF3E6)
+                                  : const Color(0xFFF4F4F4),
+                              borderRadius: BorderRadius.circular(12),
+                              border: isSelected
+                                  ? Border.all(
+                                      color: const Color(0xFFFF7C11),
+                                      width: 2,
+                                    )
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundImage: NetworkImage(
+                                    user["avatar"] ?? "",
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    user["name"] ?? "Unknown",
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: isAlreadyMember
+                                          ? Colors.grey
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                ),
+                                if (isAlreadyMember)
+                                  const Text(
+                                    "Added",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                else if (isSelected)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Color(0xFFFF7C11),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+
+          // BUTTONS
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Cancel
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFF4F4F4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 15,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Confirm
+                ElevatedButton(
+                  onPressed: () {
+                    widget.onConfirm(_selectedMembers);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF7C11),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 15,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 2,
+                  ),
+                  child: const Text(
+                    'Add',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

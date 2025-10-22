@@ -11,6 +11,8 @@ class TravelContainer extends StatelessWidget {
   final VoidCallback? onDelete;
   final String? type;
   final List<String>? memberImages;
+  final bool viewingMaps; // 👈 NEW optional property
+  final VoidCallback? onViewRoute; // 👈 Optional action when map icon pressed
 
   const TravelContainer({
     super.key,
@@ -23,6 +25,8 @@ class TravelContainer extends StatelessWidget {
     this.onDelete,
     this.type,
     this.memberImages,
+    this.viewingMaps = false, // 👈 Default is false (normal mode)
+    this.onViewRoute,
   });
 
   Color _getLighterColor(Color color) {
@@ -56,19 +60,23 @@ class TravelContainer extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Travel Icon
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _getDarkerColor(iconBackgroundColor),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.wallet_travel_rounded,
                   color: Colors.white,
                   size: 30,
                 ),
               ),
+
               const SizedBox(width: 10),
+
+              // Travel Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,7 +95,7 @@ class TravelContainer extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
 
-                    // DATE ROW
+                    // DATE
                     Row(
                       children: [
                         const Icon(
@@ -107,14 +115,13 @@ class TravelContainer extends StatelessWidget {
                       ],
                     ),
 
-                    // MEMBER CIRCLES for GROUP TRAVEL
+                    // MEMBER IMAGES (Group Travel)
                     if (type == "GroupTravel" &&
                         memberImages != null &&
                         memberImages!.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          // show up to 4 members
                           for (
                             int i = 0;
                             i < memberImages!.length && i < 4;
@@ -167,24 +174,42 @@ class TravelContainer extends StatelessWidget {
                   ],
                 ),
               ),
-              PopupMenuButton<String>(
-                icon: const Icon(
-                  FontAwesomeIcons.ellipsisVertical,
-                  size: 16,
-                  color: Color(0xFF011901),
-                ),
-                onSelected: (value) {
-                  if (value == 'edit') {
-                    onEdit?.call();
-                  } else if (value == 'delete') {
-                    onDelete?.call();
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                ],
-              ),
+
+              // 👇 RIGHT-SIDE ICON AREA
+              viewingMaps
+                  ? GestureDetector(
+                      onTap: onViewRoute,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFFFF9616),
+                        ),
+                        child: const Icon(
+                          Icons.route_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  : PopupMenuButton<String>(
+                      icon: const Icon(
+                        FontAwesomeIcons.ellipsisVertical,
+                        size: 16,
+                        color: Color(0xFF011901),
+                      ),
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete'),
+                        ),
+                      ],
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          onDelete?.call();
+                        }
+                      },
+                    ),
             ],
           ),
         ),

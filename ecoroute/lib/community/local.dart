@@ -116,30 +116,35 @@ class _LocalPageState extends State<LocalPage> {
       );
     }
 
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsetsGeometry.all(0),
-          child: Column(
-            children: communityPosts.map((post) {
-              return CommunityPost(
-                key: ValueKey(post['communityPost_id']),
-                communityPostId: int.parse(post['communityPost_id'].toString()),
-                userId: int.parse(post['user_id'].toString()),
-                profilePicUrl:
-                    "https://ecoroute-taal.online/uploads/profile_pics/${post['ProfilePic']}",
-                username: post['userName'],
-                date: post['dateCreated'],
-                caption: post['postCaption'],
-                images: List<String>.from(post['postImages'] ?? []),
-                isFollowing: false,
-                likesCount: post['likesCount'],
-              );
-            }).toList(),
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsetsGeometry.all(0),
+            child: Column(
+              children: communityPosts.map((post) {
+                return CommunityPost(
+                  key: ValueKey(post['communityPost_id']),
+                  communityPostId: int.parse(
+                    post['communityPost_id'].toString(),
+                  ),
+                  userId: int.parse(post['user_id'].toString()),
+                  profilePicUrl:
+                      "https://ecoroute-taal.online/uploads/profile_pics/${post['ProfilePic']}",
+                  username: post['userName'],
+                  date: post['dateCreated'],
+                  caption: post['postCaption'],
+                  images: List<String>.from(post['postImages'] ?? []),
+                  isFollowing: false,
+                  likesCount: post['likesCount'],
+                  commentsCount: post['commentCount'],
+                );
+              }).toList(),
+            ),
           ),
-        ),
-        const SizedBox(height: 80),
-      ],
+          const SizedBox(height: 80),
+        ],
+      ),
     );
   }
 }
